@@ -173,6 +173,11 @@ abierto = re.search(r"\.modal-fondo\.abierto\s*\{(.*?)\}", css, re.S)
 ok(bool(abierto) and "display: flex" in abierto.group(1), "solo la clase .abierto muestra la capa")
 con_hidden = re.search(r"\.modal-fondo\[hidden\]\s*\{(.*?)\}", css, re.S)
 ok(bool(con_hidden) and "!important" in con_hidden.group(1), "el atributo hidden manda siempre (display:none !important)")
+ok(bool(base_modal) and "overflow-y: auto" in base_modal.group(1),
+   "la capa del diálogo se puede desplazar (teclado del móvil, pantallas bajas)")
+caja_modal = re.search(r"\.modal-caja\s*\{(.*?)\}", css, re.S)
+ok(bool(caja_modal) and "margin: auto" in caja_modal.group(1),
+   "la caja del diálogo se centra y no se corta por arriba")
 ok("mostrarModal" in appjs and "ocultarModal" in appjs, "el JS abre y cierra la capa con funciones propias")
 ok('data-accion="alumno-guardar"' in appjs and 'data-accion="alumno-cancelar"' in appjs,
    "el diálogo de alumno tiene «Guardar» y «Cancelar»")

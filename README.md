@@ -140,7 +140,7 @@ python3 tests/estaticas.py    # estructura de la PWA, manifest, caché, rutas, t
    nombre, apellidos, las dos modalidades con sus precios y «Guardar»/«Cancelar», los errores se
    ven dentro sin cerrarlo, al guardar escribe en el almacén (sigue tras «recargar») y al
    cerrarlo **desaparece la capa oscura**.
-4. **Estructura PWA** (`python3 tests/estaticas.py`): **92/92** — manifest válido con iconos
+4. **Estructura PWA** (`python3 tests/estaticas.py`): **94/94** — manifest válido con iconos
    PNG de 192/512 y maskable, service worker con los 11 archivos de la caché, rutas relativas
    (sin `/absolutas`), **sin recursos externos** (funciona sin red), textos en español,
    IndexedDB, sin datos de ejemplo, sintaxis de los 4 JS con QuickJS. Incluye comprobaciones

@@ -435,9 +435,11 @@ p { margin: 0.35rem 0; }
   inset: 0;
   background: rgba(10, 20, 15, 0.55);
   display: none;
-  align-items: center;
+  align-items: flex-start; /* con «margin: auto» la caja se centra si cabe */
   justify-content: center;
   padding: 20px;
+  overflow-y: auto; /* en móviles bajos o con el teclado abierto, se desplaza */
+  -webkit-overflow-scrolling: touch;
   z-index: 50;
 }
 .modal-fondo.abierto {
@@ -452,6 +454,7 @@ p { margin: 0.35rem 0; }
   padding: 20px;
   width: 100%;
   max-width: 440px;
+  margin: auto; /* centrada; si no cabe, se puede desplazar desde arriba */
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
 }
 .modal-caja h3 { color: var(--verde-oscuro); }
