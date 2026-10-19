@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0F5132">
+  <meta name="description" content="Fulltraining · Control de pagos: registra los pagos en metálico de tus alumnos. Funciona sin conexión y sin cuenta.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Fulltraining">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+  <title>Fulltraining · Control de pagos</title>
+</head>
+<body>
+
+  <header class="barra-superior">
+    <p class="marca">Fulltraining</p>
+    <p class="contexto">Control de pagos</p>
+  </header>
+
+  <main id="vista" class="vista">
+    <section class="tarjeta">
+      <p>Cargando datos…</p>
+    </section>
+  </main>
+
+  <nav class="nav-inferior" aria-label="Secciones de la aplicación">
+    <button type="button" data-vista="inicio">🏠<span>Inicio</span></button>
+    <button type="button" data-vista="alumnos">👤<span>Alumnos</span></button>
+    <button type="button" data-vista="historial">📋<span>Historial</span></button>
+    <button type="button" data-vista="resumen">📊<span>Resumen</span></button>
+    <button type="button" data-vista="copias">💾<span>Copias</span></button>
+  </nav>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <div id="modal" class="modal-fondo" hidden>
+    <div class="modal-caja" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+      <h3 id="modal-titulo"></h3>
+      <div id="modal-texto" class="modal-texto"></div>
+      <div id="modal-botones" class="modal-botones"></div>
+    </div>
+  </div>
+
+  <input type="file" id="archivo-copia" accept="application/json,.json" hidden>
+
+  <script src="js/logica.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

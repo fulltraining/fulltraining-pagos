@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Fulltraining">
+  <rect width="512" height="512" fill="#0f5132"/>
+  <text x="256" y="300" text-anchor="middle" dominant-baseline="central"
+        font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+        font-size="240" font-weight="700" fill="#ffffff">FT</text>
+</svg>
