@@ -15,11 +15,13 @@ Proyecto **independiente** de la calculadora de Omniterra: no comparte ningún a
 ## 1. Cómo instalarla en Android
 
 Necesitas una dirección **HTTPS** (obligatorio para que Chrome permita instalar y funcionar
-sin conexión). **Todavía no la he publicado**; cuando quieras, dímelo y lo hacemos.
+sin conexión). **Ya está publicada** en GitHub Pages:
 
-Una vez publicada, los pasos son:
+👉 **https://fulltraining.github.io/fulltraining-pagos/**
 
-1. Abre la dirección HTTPS en **Chrome** en el móvil (por ejemplo `https://tusitio.com/fulltraining/`).
+Los pasos son:
+
+1. Abre esa dirección en **Chrome** en el móvil.
 2. Espera a que **cargue del todo** (la primera carga descarga la app a la caché).
 3. Toca el menú **⋮** de Chrome → **«Instalar app»** o **«Añadir a pantalla de inicio»**
    (en algunos móviles está en **Compartir → Instalar app**).
@@ -140,6 +142,9 @@ python3 tests/estaticas.py    # estructura de la PWA, manifest, caché, rutas, t
 5. **Servido por HTTP y HTTPS**: los 12 archivos responden `200` con el tipo MIME correcto
    tanto en `http://localhost:8083` como en un servidor **HTTPS** de prueba con certificado
    autofirmado (y el manifest se lee correctamente por HTTPS).
+6. **Publicada en GitHub Pages**: la portada y los 11 archivos de la caché responden `200`
+   con el MIME correcto en `https://fulltraining.github.io/fulltraining-pagos/`
+   (manifest válido con `start_url` y `scope` relativos, que resuelven a esa carpeta).
 
 ### Pendiente ⏳ (no puedo hacerlo desde aquí, sin navegador ni móvil)
 
@@ -148,7 +153,6 @@ python3 tests/estaticas.py    # estructura de la PWA, manifest, caché, rutas, t
   completa y el aviso de «instalada».
 - **Modo sin conexión real**: activar el avión y reabrir la app tras la primera carga.
 - **Confirmar que Chrome actualiza la caché** al publicar una versión nueva.
-- **Publicarla** en la dirección HTTPS que elijas (no la he publicado todavía).
 
 Conviene hacer esa prueba final en el móvil: crear un alumno, registrar un pago, ver el
 historial, cerrar la app, reabrirla, y exportar/importar una copia.
