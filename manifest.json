@@ -1,6 +1,8 @@
 {
   "name": "Fulltraining · Control de pagos",
   "short_name": "Fulltraining",
+  "version": "1.1.0",
+  "version_name": "1.1.0",
   "description": "Registro de pagos en metálico de tus alumnos. Funciona sin conexión y sin cuenta.",
   "lang": "es",
   "dir": "ltr",

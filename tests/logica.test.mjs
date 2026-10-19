@@ -75,6 +75,14 @@ igual(FT.buscarAlumnos(alumnos, "sanz", { incluirArchivados: true }).length, 1, 
 const orden = FT.buscarAlumnos(alumnos, "", { incluirArchivados: true }).map(FT.nombreCompleto).join(", ");
 igual(orden, "Álvaro Sanz, Ana Ruiz, María García", "orden alfabético");
 
+// Modalidad del alumno (se guarda en el alumno y se usa al cobrar)
+igual(maria.modalidad, "plana", "un alumno nuevo nace con tarifa plana");
+igual(FT.crearAlumno({ nombre: "Luis", apellidos: "Vega", modalidad: "dosdias" }).modalidad, "dosdias", "se guarda la modalidad elegida");
+igual(FT.crearAlumno({ nombre: "Eva", apellidos: "López", modalidad: "inventada" }).modalidad, "plana", "una modalidad desconocida cae en tarifa plana");
+igual(FT.modalidadDeAlumno({ nombre: "Antiguo", apellidos: "Sin Modalidad" }), "plana", "los alumnos guardados antes de la modalidad siguen valiendo");
+igual(FT.modalidadDeAlumno({ modalidad: "dosdias" }), "dosdias", "modalidadDeAlumno lee la modalidad del alumno");
+igual(FT.modalidadDeAlumno(null), "plana", "modalidadDeAlumno aguanta alumnos inexistentes");
+
 /* ---------------- validación y duplicados de pagos ---------------- */
 
 console.log("\n== Registro de pago ==");

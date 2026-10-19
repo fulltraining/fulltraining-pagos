@@ -7,6 +7,10 @@
    ============================================================ */
 
 (function () {
+  /* Versión visible en «Copias de seguridad».
+     Debe coincidir con «version» de manifest.json (lo comprueba tests/estaticas.py). */
+  const VERSION = "1.1.0";
+
   /* ---------------- estado ---------------- */
 
   function nuevoBorradorPago() {
@@ -28,7 +32,7 @@
   }
 
   function nuevoBorradorAlumno() {
-    return { nombre: "", apellidos: "", errores: [] };
+    return { nombre: "", apellidos: "", modalidad: "plana", errores: [] };
   }
 
   const S = {
@@ -72,6 +76,21 @@
     temporizadorToast = setTimeout(() => { t.className = "toast"; }, 3600);
   }
 
+  /* La capa del diálogo: se muestra solo cuando hay contenido (clase
+     «abierto») y siempre se oculta al cerrar, sin fiarse únicamente del
+     atributo hidden. */
+  function mostrarModal() {
+    const m = porId("modal");
+    m.hidden = false;
+    m.classList.add("abierto");
+  }
+
+  function ocultarModal() {
+    const m = porId("modal");
+    m.hidden = true;
+    m.classList.remove("abierto");
+  }
+
   let resolverModal = null;
   function preguntar(opciones) {
     return new Promise((resolver) => {
@@ -88,14 +107,14 @@
         btn.addEventListener("click", () => cerrarModal(b.valor));
         cont.appendChild(btn);
       });
-      porId("modal").hidden = false;
+      mostrarModal();
       const primero = cont.querySelector("button");
       if (primero) primero.focus();
     });
   }
 
   function cerrarModal(valor) {
-    porId("modal").hidden = true;
+    ocultarModal();
     if (resolverModal) {
       const r = resolverModal;
       resolverModal = null;
@@ -425,27 +444,54 @@
     `)).join("");
   }
 
-  function htmlAlumnos() {
-    const editando = !!S.alumnoEditando;
+  /* ---------------- formulario de alumno (dentro del diálogo) ---------------- */
+
+  function formularioAlumnoHTML() {
     const b = S.borradorAlumno;
     const errores = b.errores.length
       ? `<div class="errores" role="alert"><ul>${htmlDe(b.errores)}</ul></div>`
       : "";
+    const tarjetas = FT.MODALIDADES_ORDEN.map((k) => {
+      const activa = b.modalidad === k;
+      const m = FT.MODALIDADES[k];
+      return `<button type="button" class="tarjeta-radio${activa ? " activa" : ""}" data-accion="alumno-modalidad" data-valor="${k}" aria-pressed="${activa}">
+        <span class="titulo-modalidad">${esc(m.nombre)}${activa ? " ✓" : ""}</span>
+        <span class="detalle-modalidad">${esc(m.detalle)}</span>
+      </button>`;
+    }).join("");
+    return `${errores}
+      <label class="etiqueta" for="alumno-nombre">Nombre</label>
+      <input class="entrada entrada-grande" type="text" id="alumno-nombre" data-campo="alumno-nombre"
+             value="${esc(b.nombre)}" autocomplete="given-name" placeholder="Nombre">
+      <label class="etiqueta" for="alumno-apellidos">Apellidos</label>
+      <input class="entrada entrada-grande" type="text" id="alumno-apellidos" data-campo="alumno-apellidos"
+             value="${esc(b.apellidos)}" autocomplete="family-name" placeholder="Apellidos">
+      <p class="etiqueta" id="etiqueta-modalidad-alumno">Modalidad</p>
+      <div class="modalidades" role="group" aria-labelledby="etiqueta-modalidad-alumno">${tarjetas}</div>`;
+  }
+
+  function pintarFormularioEnModal() {
+    pintarEn("modal-texto", formularioAlumnoHTML());
+  }
+
+  function abrirFormularioAlumno() {
+    const editando = !!S.alumnoEditando;
+    porId("modal-titulo").textContent = editando ? "Editar alumno" : "Nuevo alumno";
+    pintarFormularioEnModal();
+    pintarEn("modal-botones", `
+      <button type="button" class="btn btn-grande btn-primario" data-accion="alumno-guardar">${editando ? "Guardar cambios" : "Guardar"}</button>
+      <button type="button" class="btn btn-ghost" data-accion="alumno-cancelar">Cancelar</button>`);
+    mostrarModal();
+    const primerCampo = porId("alumno-nombre");
+    if (primerCampo && primerCampo.focus) primerCampo.focus();
+  }
+
+  function htmlAlumnos() {
     return `
       <h2>Alumnos</h2>
-      <section class="tarjeta">
-        <h3>${editando ? "Editar alumno" : "Nuevo alumno"}</h3>
-        ${errores}
-        <label class="etiqueta" for="alumno-nombre">Nombre</label>
-        <input class="entrada entrada-grande" type="text" id="alumno-nombre" data-campo="alumno-nombre"
-               value="${esc(b.nombre)}" autocomplete="given-name" placeholder="Nombre">
-        <label class="etiqueta" for="alumno-apellidos">Apellidos</label>
-        <input class="entrada entrada-grande" type="text" id="alumno-apellidos" data-campo="alumno-apellidos"
-               value="${esc(b.apellidos)}" autocomplete="family-name" placeholder="Apellidos">
-        <div class="botones-fila">
-          <button type="button" class="btn btn-grande btn-primario" data-accion="alumno-guardar">${editando ? "Guardar cambios" : "Guardar alumno"}</button>
-          ${editando ? `<button type="button" class="btn btn-ghost" data-accion="alumno-cancelar">Cancelar</button>` : ""}
-        </div>
+      <section class="tarjeta tarjeta-destaque">
+        <button type="button" class="btn btn-grande btn-primario btn-bloque" data-accion="nuevo-alumno">＋ Nuevo alumno</button>
+        <p class="nota">Se abre un diálogo para escribir nombre, apellidos y modalidad.</p>
       </section>
 
       <section class="tarjeta">
@@ -639,6 +685,7 @@
       <section class="tarjeta">
         <h3>Consejo</h3>
         <p class="nota">Exporta una copia JSON de vez en cuando y guárdala en el móvil o en el ordenador. Si desinstalas la app o borras los datos del sitio web, los pagos solo se recuperarían con esa copia.</p>
+        <p class="nota">Versión de la app: ${VERSION}</p>
       </section>`;
   }
 
@@ -743,28 +790,45 @@
     const errores = FT.validarAlumno(b);
     if (errores.length) {
       b.errores = errores;
-      render();
+      pintarFormularioEnModal(); // los errores se ven dentro del diálogo, sin cerrarlo
+      avisar("Revisa los campos marcados.", "error");
       return;
     }
-    if (S.alumnoEditando) {
-      const original = FT.alumnoPorId(S.alumnos, S.alumnoEditando);
-      if (!original) throw new Error("El alumno ya no existe.");
-      await FTDB.guardarAlumno(FT.crearAlumno({
-        id: original.id,
-        nombre: b.nombre,
-        apellidos: b.apellidos,
-        archivado: original.archivado,
-        creado: original.creado,
-      }));
-      avisar("Alumno actualizado ✓");
-    } else {
-      await FTDB.guardarAlumno(FT.crearAlumno({ nombre: b.nombre, apellidos: b.apellidos }));
-      avisar("Alumno guardado ✓");
+    if (S.guardando) return;
+    const editando = !!S.alumnoEditando;
+    S.guardando = true;
+    try {
+      if (editando) {
+        const original = FT.alumnoPorId(S.alumnos, S.alumnoEditando);
+        if (!original) throw new Error("El alumno ya no existe.");
+        await FTDB.guardarAlumno(FT.crearAlumno({
+          id: original.id,
+          nombre: b.nombre,
+          apellidos: b.apellidos,
+          modalidad: b.modalidad,
+          archivado: original.archivado,
+          creado: original.creado,
+        }));
+      } else {
+        await FTDB.guardarAlumno(FT.crearAlumno({
+          nombre: b.nombre,
+          apellidos: b.apellidos,
+          modalidad: b.modalidad,
+        }));
+      }
+      S.alumnoEditando = null;
+      S.borradorAlumno = nuevoBorradorAlumno();
+      await recargar();
+      cerrarModal(null); // la capa oscura desaparece al guardar
+      if (editando) {
+        render();
+      } else {
+        ir("alumnos"); // se ve el alumno recién creado en la lista
+      }
+      avisar(editando ? "Alumno actualizado ✓" : "Alumno guardado ✓");
+    } finally {
+      S.guardando = false;
     }
-    S.alumnoEditando = null;
-    S.borradorAlumno = nuevoBorradorAlumno();
-    await recargar();
-    render();
   }
 
   async function alternarArchivo(id) {
@@ -783,6 +847,7 @@
       id: alumno.id,
       nombre: alumno.nombre,
       apellidos: alumno.apellidos,
+      modalidad: FT.modalidadDeAlumno(alumno),
       archivado: archivar,
       creado: alumno.creado,
     }));
@@ -851,6 +916,17 @@
     lector.readAsText(archivo);
   }
 
+  /* Al elegir alumno para un pago nuevo, se anticipa su modalidad
+     (y su importe). Al editar un pago, se conserva la del pago. */
+  function aplicarModalidadAlumnoAlPago(alumnoId) {
+    if (S.pago.editandoId) return;
+    const alumno = FT.alumnoPorId(S.alumnos, alumnoId);
+    if (!alumno) return;
+    const modalidad = FT.modalidadDeAlumno(alumno);
+    S.pago.modalidad = modalidad;
+    S.pago.importe = String(FT.importeDeModalidad(modalidad));
+  }
+
   async function manejarAccion(accion, valor) {
     switch (accion) {
       case "ir":
@@ -866,12 +942,13 @@
       case "nuevo-alumno":
         S.alumnoEditando = null;
         S.borradorAlumno = nuevoBorradorAlumno();
-        ir("alumnos");
+        abrirFormularioAlumno();
         break;
 
       case "elegir-alumno":
         S.pago.alumnoId = valor;
         S.pago.avisos = [];
+        aplicarModalidadAlumnoAlPago(valor);
         render();
         break;
 
@@ -937,15 +1014,25 @@
       case "alumno-cancelar":
         S.alumnoEditando = null;
         S.borradorAlumno = nuevoBorradorAlumno();
-        render();
+        cerrarModal(null);
+        break;
+
+      case "alumno-modalidad":
+        S.borradorAlumno.modalidad = valor;
+        pintarFormularioEnModal();
         break;
 
       case "alumno-editar": {
         const alumno = FT.alumnoPorId(S.alumnos, valor);
         if (!alumno) break;
         S.alumnoEditando = alumno.id;
-        S.borradorAlumno = { nombre: alumno.nombre, apellidos: alumno.apellidos, errores: [] };
-        ir("alumnos");
+        S.borradorAlumno = {
+          nombre: alumno.nombre,
+          apellidos: alumno.apellidos,
+          modalidad: FT.modalidadDeAlumno(alumno),
+          errores: [],
+        };
+        abrirFormularioAlumno();
         break;
       }
 
@@ -956,6 +1043,7 @@
       case "alumno-pago":
         S.pago = nuevoBorradorPago();
         S.pago.alumnoId = valor;
+        aplicarModalidadAlumnoAlPago(valor);
         S.busqueda.pago = "";
         ir("pago");
         break;
@@ -1071,18 +1159,20 @@
     }
   }
 
+  function alClic(ev) {
+    if (!ev.target || !ev.target.closest) return;
+    const btn = ev.target.closest("[data-accion]");
+    if (!btn) return;
+    ev.preventDefault();
+    manejarAccion(btn.dataset.accion, btn.dataset.valor).catch((e) => {
+      console.error(e);
+      avisar("Error: " + (e && e.message ? e.message : e), "error");
+    });
+  }
+
   function iniciar() {
     const vista = porId("vista");
-    vista.addEventListener("click", (ev) => {
-      if (!ev.target || !ev.target.closest) return;
-      const btn = ev.target.closest("[data-accion]");
-      if (!btn) return;
-      ev.preventDefault();
-      manejarAccion(btn.dataset.accion, btn.dataset.valor).catch((e) => {
-        console.error(e);
-        avisar("Error: " + (e && e.message ? e.message : e), "error");
-      });
-    });
+    vista.addEventListener("click", alClic);
     vista.addEventListener("input", manejarEventoCampo);
     vista.addEventListener("change", manejarEventoCampo);
 
@@ -1091,7 +1181,14 @@
       if (btn) ir(btn.dataset.vista);
     });
 
-    porId("modal").addEventListener("click", (ev) => {
+    // El diálogo lleva su propio formulario: mismos manejores que la vista
+    // (escribir, elegir modalidad, pulsar «Guardar»/«Cancelar»).
+    const capaModal = porId("modal");
+    capaModal.addEventListener("click", alClic);
+    capaModal.addEventListener("input", manejarEventoCampo);
+    capaModal.addEventListener("change", manejarEventoCampo);
+    // Tocar la parte oscura (fuera de la caja) cierra el diálogo.
+    capaModal.addEventListener("click", (ev) => {
       if (ev.target && ev.target.id === "modal") cerrarModal(null);
     });
     document.addEventListener("keydown", (ev) => {
@@ -1133,6 +1230,7 @@
      permite comprobar el HTML de cada pantalla con datos de prueba. */
   globalThis.FTUI = {
     S: S,
+    VERSION: VERSION,
     nuevoBorradorPago: nuevoBorradorPago,
     nuevoBorradorAlumno: nuevoBorradorAlumno,
     htmlVista: htmlVista,
@@ -1146,5 +1244,11 @@
     htmlListaHistorial: htmlListaHistorial,
     htmlListaAlumnos: htmlListaAlumnos,
     htmlResultadosBusqueda: htmlResultadosBusqueda,
+    formularioAlumnoHTML: formularioAlumnoHTML,
+    abrirFormularioAlumno: abrirFormularioAlumno,
+    pintarFormularioEnModal: pintarFormularioEnModal,
+    guardarAlumno: guardarAlumno,
+    cerrarModal: cerrarModal,
+    manejarAccion: manejarAccion,
   };
 })();

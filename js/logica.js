@@ -152,9 +152,16 @@ globalThis.FT = (function () {
       id: String(d.id || "") || nuevoId(),
       nombre: String(d.nombre || "").trim(),
       apellidos: String(d.apellidos || "").trim(),
+      // Alumnos guardados antes de tener modalidad: valen como «plana».
+      modalidad: MODALIDADES[d.modalidad] ? d.modalidad : "plana",
       archivado: !!d.archivado,
       creado: String(d.creado || "") || fechaLocalAhora(),
     };
+  }
+
+  function modalidadDeAlumno(alumno) {
+    const m = alumno && alumno.modalidad;
+    return MODALIDADES[m] ? m : "plana";
   }
 
   function validarAlumno(datos) {
@@ -473,6 +480,7 @@ globalThis.FT = (function () {
     nombreCompleto: nombreCompleto,
     compararAlumnos: compararAlumnos,
     crearAlumno: crearAlumno,
+    modalidadDeAlumno: modalidadDeAlumno,
     validarAlumno: validarAlumno,
     buscarAlumnos: buscarAlumnos,
     alumnoPorId: alumnoPorId,

@@ -53,7 +53,7 @@ cualquier carpeta de cualquier servidor HTTPS:
 |---|---|
 | **Inicio** | Botón grande «Registrar pago», buscador de alumnos y resumen del mes. |
 | **Registrar pago** | Eliges alumno → modalidad (el importe se rellena solo) → mes y año **que estás pagando** → «Guardar pago». La fecha y hora del cobro se asignan solas con la hora local del móvil. Método: metálico. Observaciones opcionales. |
-| **Alumnos** | Crear, editar, buscar y **archivar** (archivar no borra pagos). |
+| **Alumnos** | Crear, editar, buscar y **archivar** (archivar no borra pagos). Crear o editar se hace en un **diálogo** con nombre, apellidos y modalidad (tarifa plana 50 €/mes o dos días por semana 49 €/mes) y botones «Guardar» y «Cancelar». |
 | **Historial** | Todos los pagos con nombre, fecha del cobro, mes/año abonado, modalidad, importe y observaciones. Busca por alumno y filtra por mes, año y modalidad (elige si el filtro aplica al **mes abonado** o a la **fecha de cobro**). Botones «Editar» y «Eliminar» (con confirmación). |
 | **Resumen** | Total cobrado en metálico **por fecha de cobro**, número de pagos, desglose por modalidad y lista de alumnos activos con el mes seleccionado **abonado o pendiente** (según el periodo pagado, no según la fecha). |
 | **Copias** | Exportar/importar copia JSON completa y exportar pagos a CSV para Excel (separador `;`). |
@@ -117,10 +117,12 @@ python3 tests/estaticas.py    # estructura de la PWA, manifest, caché, rutas, t
 
 ### Verificado ✅
 
-1. **Lógica** (`qjs tests/logica.test.mjs`): **94/94**.
+1. **Lógica** (`qjs tests/logica.test.mjs`): **100/100**.
    - Fecha y hora local del móvil en ISO sin zona horaria; formato `dd/mm/aaaa` y `HH:mm`.
    - Importes en euros (`50,00 €`, `1.234,50 €`).
    - Tarifa plana 50 € y dos días 49 €; importe automático.
+   - **Modalidad del alumno**: nace en «tarifa plana», se guarda la elegida y los alumnos
+     guardados antes de tener modalidad siguen valiendo («plana»).
    - Aviso de duplicado (mismo alumno + mismo mes/año) y que al editar no se avisa de uno mismo.
    - **Resumen**: total por fecha de cobro, nº de pagos, desglose por modalidad, y lista de
      abonados/pendientes **por periodo pagado** (incluido un pago hecho en octubre por un
@@ -132,19 +134,32 @@ python3 tests/estaticas.py    # estructura de la PWA, manifest, caché, rutas, t
    flujo completo: crear alumno → registrar pagos → consultar historial → **cerrar y reabrir**
    (los datos siguen) → exportar → importar fusionando y reemplazando → eliminar pago →
    archivar alumno sin borrar pagos → la base no se degrada.
-3. **Pantallas** (`qjs tests/ui.test.mjs`): **103/103** — cada pantalla genera el HTML esperado
+3. **Pantallas** (`qjs tests/ui.test.mjs`): **132/132** — cada pantalla genera el HTML esperado
    con datos de prueba (botones, campos, avisos, confirmaciones, estados vacíos, escapado de
-   texto).
-4. **Estructura PWA** (`python3 tests/estaticas.py`): **78/78** — manifest válido con iconos
+   texto). Incluye el **diálogo de alumno**: se abre desde los dos botones de Inicio, muestra
+   nombre, apellidos, las dos modalidades con sus precios y «Guardar»/«Cancelar», los errores se
+   ven dentro sin cerrarlo, al guardar escribe en el almacén (sigue tras «recargar») y al
+   cerrarlo **desaparece la capa oscura**.
+4. **Estructura PWA** (`python3 tests/estaticas.py`): **92/92** — manifest válido con iconos
    PNG de 192/512 y maskable, service worker con los 11 archivos de la caché, rutas relativas
    (sin `/absolutas`), **sin recursos externos** (funciona sin red), textos en español,
-   IndexedDB, sin datos de ejemplo, sintaxis de los 4 JS con QuickJS.
+   IndexedDB, sin datos de ejemplo, sintaxis de los 4 JS con QuickJS. Incluye comprobaciones
+   contra el fallo del diálogo: `.modal-fondo` oculto por defecto, sin `display: flex` en la
+   regla base, `[hidden]` con `!important` y versión del manifest igual a la de la app.
 5. **Servido por HTTP y HTTPS**: los 12 archivos responden `200` con el tipo MIME correcto
    tanto en `http://localhost:8083` como en un servidor **HTTPS** de prueba con certificado
    autofirmado (y el manifest se lee correctamente por HTTPS).
 6. **Publicada en GitHub Pages**: la portada y los 11 archivos de la caché responden `200`
    con el MIME correcto en `https://fulltraining.github.io/fulltraining-pagos/`
    (manifest válido con `start_url` y `scope` relativos, que resuelven a esa carpeta).
+7. **Corregido (versión 1.1.0)**: la capa oscura del diálogo se veía siempre con la caja blanca
+   vacía y tapaba la app. Causa: `.modal-fondo { display: flex }` en `styles.css` se imponía al
+   atributo `hidden` del HTML (las reglas del autor ganan a las del navegador). Ahora la capa
+   está `display: none` por defecto, solo se muestra con la clase `.abierto` que pone el JS al
+   abrir el formulario, y `[hidden]` lleva `display: none !important` como seguro. El formulario
+   de alumno (nombre, apellidos, modalidad, Guardar/Cancelar) se muestra dentro del diálogo.
+   La caché del service worker pasa a `fulltraining-cache-v2` para que el arreglo llegue también
+   a quien ya había abierto la app. La versión se puede comprobar en **Copias → Versión de la app**.
 
 ### Pendiente ⏳ (no puedo hacerlo desde aquí, sin navegador ni móvil)
 
@@ -164,6 +179,6 @@ historial, cerrar la app, reabrirla, y exportar/importar una copia.
 - Los archivos se pueden reemplazar libremente: **IndexedDB no se borra** al actualizar una PWA.
 - En el código, la base de datos solo **añade** tablas nuevas (`version` 1 → 2 → …); nunca se
   borran ni se vacían en una actualización.
-- La caché del service worker lleva versión (`fulltraining-cache-v1`); al aparecer `v2` se
+- La caché del service worker lleva versión (`fulltraining-cache-v2`); al aparecer `v3` se
   eliminan solo las cachés viejas.
 - Recomendación: exporta una copia JSON antes de una actualización grande.

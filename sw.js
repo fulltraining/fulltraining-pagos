@@ -7,7 +7,7 @@
    ============================================================ */
 "use strict";
 
-const CACHE = "fulltraining-cache-v1";
+const CACHE = "fulltraining-cache-v2";
 
 const APP_SHELL = [
   "./",

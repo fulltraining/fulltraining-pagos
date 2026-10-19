@@ -427,15 +427,24 @@ p { margin: 0.35rem 0; }
 .toast-error { background: var(--peligro); }
 
 /* ---------- modal ---------- */
+/* Oculto por defecto. Antes aquí había «display: flex», que se impone al
+   atributo hidden del navegador y dejaba la capa oscura con la caja blanca
+   visible desde la carga, tapando la app. Solo se muestra con .abierto. */
 .modal-fondo {
   position: fixed;
   inset: 0;
   background: rgba(10, 20, 15, 0.55);
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   padding: 20px;
   z-index: 50;
+}
+.modal-fondo.abierto {
+  display: flex;
+}
+.modal-fondo[hidden] {
+  display: none !important;
 }
 .modal-caja {
   background: #fff;

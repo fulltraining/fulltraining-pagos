@@ -73,6 +73,8 @@ ok(man.get("lang") == "es", "el manifest está en español")
 ok(man.get("start_url") == "." and man.get("scope") == ".", "start_url y scope relativos (vale para cualquier carpeta)")
 ok(man.get("display") == "standalone", "se abre como app (standalone)")
 ok(man.get("theme_color", "").lower() == "#0f5132", "color de tema")
+ok(re.fullmatch(r"\d+\.\d+\.\d+", man.get("version", "")) is not None, f"el manifest lleva versión «{man.get('version')}»")
+ok(man.get("version_name") == man.get("version"), "version_name coincide con version (para Android)")
 
 iconos = man.get("icons", [])
 ok(len(iconos) >= 3, f"{len(iconos)} iconos declarados")
@@ -113,6 +115,9 @@ ok(not faltan_sw, f"los {len(shell)} archivos de la caché existen: {faltan_sw o
 criticos = ["index.html", "styles.css", "manifest.json", "js/logica.js", "js/db.js", "js/app.js"]
 ok(all(c in shell for c in criticos), "la caché incluye todos los archivos críticos")
 ok('const CACHE = "' in sw, "la caché tiene nombre versionado")
+cache_n = re.search(r'const CACHE = "fulltraining-cache-v(\d+)"', sw)
+ok(bool(cache_n) and int(cache_n.group(1)) >= 2,
+   f"la caché supera la v1 con el fallo del modal (v{cache_n.group(1) if cache_n else '?'})")
 appjs = leer("js/app.js")
 ok('serviceWorker' in appjs and 'register("sw.js")' in appjs, "app.js registra el service worker")
 ok("navigate" in sw, "las navegaciones tienen respaldo en caché (abrir la app sin red)")
@@ -154,6 +159,29 @@ logica = leer("js/logica.js")
 ok('"\\ufeff"' in logica, "el CSV lleva BOM para Excel")
 ok('join(";")' in logica, "el CSV usa «;» como separador (Excel en español)")
 ok("leerImportacion" in logica and "exportarDatos" in logica, "hay exportar e importar en JSON")
+
+print("\n== Diálogo (nunca debe tapar la app) ==")
+ok('id="modal" class="modal-fondo" hidden' in html, "la capa del diálogo nace con hidden en index.html")
+css = leer("styles.css")
+base_modal = re.search(r"\.modal-fondo\s*\{(.*?)\}", css, re.S)
+ok(bool(base_modal), "existe la regla .modal-fondo")
+if base_modal:
+    ok("display: none" in base_modal.group(1), ".modal-fondo está oculto por defecto")
+    ok("display: flex" not in base_modal.group(1),
+       ".modal-fondo no fuerza flex (eso anulaba hidden y dejaba la caja vacía a la vista)")
+abierto = re.search(r"\.modal-fondo\.abierto\s*\{(.*?)\}", css, re.S)
+ok(bool(abierto) and "display: flex" in abierto.group(1), "solo la clase .abierto muestra la capa")
+con_hidden = re.search(r"\.modal-fondo\[hidden\]\s*\{(.*?)\}", css, re.S)
+ok(bool(con_hidden) and "!important" in con_hidden.group(1), "el atributo hidden manda siempre (display:none !important)")
+ok("mostrarModal" in appjs and "ocultarModal" in appjs, "el JS abre y cierra la capa con funciones propias")
+ok('data-accion="alumno-guardar"' in appjs and 'data-accion="alumno-cancelar"' in appjs,
+   "el diálogo de alumno tiene «Guardar» y «Cancelar»")
+ok("abrirFormularioAlumno" in appjs and "formularioAlumnoHTML" in appjs,
+   "hay formulario de alumno con nombre, apellidos y modalidad")
+ok('data-accion="alumno-modalidad"' in appjs, "el formulario de alumno ofrece elegir modalidad")
+version_js = re.search(r'const VERSION = "([^"]+)"', appjs)
+ok(bool(version_js) and version_js.group(1) == man.get("version"),
+   f"manifest y app.js coinciden en la versión {man.get('version')}")
 
 print("\n== Iconos y SVG ==")
 for nombre, esperado in [("icon-192.png", (192, 192)), ("icon-512.png", (512, 512)),
