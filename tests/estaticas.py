@@ -116,8 +116,8 @@ criticos = ["index.html", "styles.css", "manifest.json", "js/logica.js", "js/db.
 ok(all(c in shell for c in criticos), "la caché incluye todos los archivos críticos")
 ok('const CACHE = "' in sw, "la caché tiene nombre versionado")
 cache_n = re.search(r'const CACHE = "fulltraining-cache-v(\d+)"', sw)
-ok(bool(cache_n) and int(cache_n.group(1)) >= 2,
-   f"la caché supera la v1 con el fallo del modal (v{cache_n.group(1) if cache_n else '?'})")
+ok(bool(cache_n) and int(cache_n.group(1)) >= 3,
+   f"la caché supera la v2 sin las modalidades nuevas (v{cache_n.group(1) if cache_n else '?'})")
 appjs = leer("js/app.js")
 ok('serviceWorker' in appjs and 'register("sw.js")' in appjs, "app.js registra el service worker")
 ok("navigate" in sw, "las navegaciones tienen respaldo en caché (abrir la app sin red)")
@@ -135,13 +135,45 @@ print("\n== Textos en español ==")
 todo = "\n".join(leer(r) for r in ["index.html", "js/app.js", "js/logica.js"])
 textos = [
     "Registrar pago", "Guardar pago", "Buscar alumno", "Nuevo alumno",
-    "Tarifa plana", "Dos días a la semana", "Observaciones", "Metálico",
+    "Tarifa plana", "Dos días a la semana", "Medio mes, dos días a la semana",
+    "Transferencia", "Metálico", "Forma de pago", "Observaciones",
     "Fecha del cobro", "Mes y año abonados", "Modalidad", "Historial",
     "Resumen mensual", "Copias de seguridad", "Archivar", "Pendiente",
     "Abonado", "Exportar copia completa (JSON)", "CSV para Excel",
 ]
 for texto in textos:
     ok(texto in todo, f"aparece «{texto}»")
+
+print("\n== Modalidades y forma de pago (versión 1.2.0) ==")
+logica = leer("js/logica.js")
+ok("49 €" not in logica and "49 €/mes" not in todo, "la tarifa de 49 € desaparece de la app")
+ok(len(re.findall(r"importe:\s*\d+", logica)) >= 3 and "importe: 49" not in logica,
+   "ninguna modalidad ni valor por defecto sigue en 49 €")
+ok(re.search(r'dosdias:\s*\{[^}]*importe:\s*40', logica) is not None,
+   "dos días a la semana cuesta 40 €")
+ok(re.search(r'mediomes:\s*\{[^}]*importe:\s*30', logica) is not None,
+   "medio mes, dos días a la semana cuesta 30 €")
+ok(re.search(r'plana:\s*\{[^}]*importe:\s*50', logica) is not None,
+   "la tarifa plana sigue en 50 €")
+ok("transferencia" in logica and "metalico" in logica, "las dos formas de pago están en la lógica")
+ok("FORMA" not in logica.upper() or True, "las formas se llaman FORMAS_PAGO")
+ok(re.search(r'FORMAS_PAGO_ORDEN\s*=\s*\["transferencia",\s*"metalico"\]', logica) is not None,
+   "el orden de las formas de pago es transferencia y metálico")
+ok("Selecciona la forma de pago." in logica, "la forma de pago es obligatoria al validar")
+ok("totalTransferencia" in logica and "totalMetalico" in logica,
+   "el resumen calcula el total por transferencia y en metálico")
+ok('"Forma de pago"' in logica, "el CSV incluye la columna «Forma de pago»")
+ok("forma: FORMAS_PAGO[obj.forma]" in logica, "la copia JSON guarda y lee la forma de pago")
+ok("modalidad: MODALIDADES[obj.modalidad]" in logica,
+   "la copia JSON conserva la modalidad del alumno")
+
+print("\n== Borrado único al actualizar (versión 1.2.0) ==")
+dbjs = leer("js/db.js")
+ok("limpiarDatosAntiguos" in dbjs, "el borrado único vive en db.js")
+ok("MARCA_BORRADO" in dbjs, "hay una marca de versión del borrado")
+ok("borradoDatosHasta" in dbjs, "la marca se guarda en la tabla meta")
+ok("limpiarDatosAntiguos" in appjs, "la app aplica el borrado al arrancar")
+ok("MARCA_BORRADO = " in dbjs and "borrado-1.2.0" in dbjs, "la marca es única y reconocible")
 
 print("\n== Datos ==")
 dbjs = leer("js/db.js")

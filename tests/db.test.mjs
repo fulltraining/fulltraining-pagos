@@ -175,6 +175,56 @@ eval(std.loadFile("js/db.js"));
 const FT = globalThis.FT;
 const FTDB = globalThis.FTDB;
 
+/* ---------------- datos antiguos (versiones anteriores a 1.2.0) ---------------- */
+
+// Se meten a mano en el "dispositivo" para simular una instalación antigua:
+// alumnos y pagos con la tarifa de 49 € y sin forma de pago.
+function sembrarDatosAntiguos() {
+  fake._estado.tablas.alumnos.set("viejo-1", {
+    id: "viejo-1", nombre: "Cliente", apellidos: "Antiguo", modalidad: "dosdias",
+    archivado: false, creado: "2025-01-01T10:00:00",
+  });
+  fake._estado.tablas.pagos.set("viejo-p1", {
+    id: "viejo-p1", alumnoId: "viejo-1", fecha: "2025-02-01T10:00:00", mes: 2, anio: 2025,
+    modalidad: "dosdias", importe: 49, metodo: "Metálico", observaciones: "",
+  });
+}
+
+function pruebasBorradoUnico() {
+  sembrarDatosAntiguos();
+  return FTDB.listarAlumnos()
+    .then((lista) => {
+      igual(lista.length, 1, "el dispositivo simulado arranca con un alumno antiguo de 49 €");
+      return FTDB.limpiarDatosAntiguos();
+    })
+    .then(() => Promise.all([FTDB.listarAlumnos(), FTDB.listarPagos(), FTDB.leerMeta("borradoDatosHasta")]))
+    .then((r) => {
+      igual(r[0].length, 0, "el borrado único elimina los alumnos antiguos");
+      igual(r[1].length, 0, "el borrado único elimina los pagos antiguos (incluidos los de 49 €)");
+      igual(r[2], FTDB.MARCA_BORRADO, "queda guardada la marca de versión del borrado");
+      // Datos nuevos creados después del borrado.
+      return FTDB.guardarAlumno(FT.crearAlumno({ id: "nuevo-1", nombre: "Nuevo", apellidos: "Alumno" }))
+        .then(() => FTDB.guardarPago(FT.crearPago({
+          id: "nuevo-p1", alumnoId: "nuevo-1", fecha: "2026-10-20T09:00:00",
+          mes: 10, anio: 2026, modalidad: "plana", forma: "transferencia", importe: 50,
+        })));
+    })
+    .then(() => FTDB.cerrar())
+    // Se vuelve a abrir la app: la marca debe impedir otro borrado.
+    .then(() => FTDB.limpiarDatosAntiguos())
+    .then(() => Promise.all([FTDB.listarAlumnos(), FTDB.listarPagos()]))
+    .then((r) => {
+      igual(r[0].length, 1, "al reabrir la app no se vuelve a borrar: el alumno nuevo sigue ahí");
+      igual(r[1].length, 1, "…y el pago nuevo también");
+      // Una segunda llamada seguida tampoco borra nada (recargas, navegación…).
+      return FTDB.limpiarDatosAntiguos();
+    })
+    .then(() => FTDB.listarPagos())
+    .then((lista) => {
+      igual(lista.length, 1, "ni al recargar ni al actualizar se repite el borrado");
+    });
+}
+
 /* ---------------- flujo completo ---------------- */
 
 function principal() {
@@ -184,7 +234,10 @@ function principal() {
   let ana;
   let pagoMaria;
 
-  return FTDB.abrir()
+  return pruebasBorradoUnico()
+    // El dispositivo queda limpio para el flujo normal.
+    .then(() => FTDB.guardarTodo([], []))
+    .then(() => FTDB.abrir())
     .then(() => {
       ok(true, "la base de datos se abre y crea sus tablas");
       ok(fake._estado.creadas.has("alumnos") && fake._estado.creadas.has("pagos") && fake._estado.creadas.has("meta"),
@@ -219,6 +272,7 @@ function principal() {
         mes: 10,
         anio: 2026,
         modalidad: "plana",
+        forma: "transferencia",
         importe: FT.importeDeModalidad("plana"),
         observaciones: "Pago de octubre",
       });
@@ -231,6 +285,7 @@ function principal() {
         mes: 10,
         anio: 2026,
         modalidad: "dosdias",
+        forma: "metalico",
         importe: FT.importeDeModalidad("dosdias"),
       });
       return FTDB.guardarPago(pagoAna);
@@ -239,8 +294,12 @@ function principal() {
     .then((lista) => {
       pagos = lista;
       igual(pagos.length, 2, "los dos pagos quedan guardados");
+      ok(pagos.some((p) => p.forma === "transferencia") && pagos.some((p) => p.forma === "metalico"),
+        "se guarda la forma de pago de cada cobro");
       const r = FT.resumenMensual(pagos, alumnos, 10, 2026);
-      igual(r.total, 99, "resumen de octubre: 50 + 49 = 99 €");
+      igual(r.total, 90, "resumen de octubre: 50 + 40 = 90 €");
+      igual(r.totalTransferencia, 50, "50 € por transferencia");
+      igual(r.totalMetalico, 40, "40 € en metálico");
       igual(r.abonados, 2, "los dos alumnos activos han abonado octubre (periodo)");
 
       // 3) consultar el historial
@@ -303,9 +362,17 @@ function principal() {
         .then((lista5) => {
           ok(lista5.length === 1, "archivar al alumno no borra ningún pago");
 
-          // 10) actualizar la app: misma base de datos, versión de datos superior
+          // 10) actualizar la app: misma base de datos, sin borrados posteriores
           ok(fake._estado.version() === 1, "la base sigue en su versión (sin migraciones destructivas)");
           ok(fake._estado.creadas.has("alumnos"), "las tablas siguen existiendo");
+          return FTDB.limpiarDatosAntiguos().then(() => FTDB.listarPagos());
+        })
+        .then((lista6) => {
+          igual(lista6.length, 1, "tras actualizar, el borrado único no se repite y el pago sigue guardado");
+          return FTDB.leerMeta("borradoDatosHasta");
+        })
+        .then((marca) => {
+          igual(marca, FTDB.MARCA_BORRADO, "la marca del borrado se conserva entre actualizaciones");
         });
     })
     .then(() => {

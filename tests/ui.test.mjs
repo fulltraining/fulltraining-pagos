@@ -94,11 +94,11 @@ const luis = FT.crearAlumno({ id: "a3", nombre: "Luis", apellidos: "Vega", archi
 
 const pagoOk = FT.crearPago({
   id: "p1", alumnoId: "a1", fecha: "2026-10-03T10:15:00", mes: 10, anio: 2026,
-  modalidad: "plana", importe: 50, observaciones: "Entrega en mano",
+  modalidad: "plana", forma: "transferencia", importe: 50, observaciones: "Entrega en mano",
 });
 const pagoAna = FT.crearPago({
   id: "p2", alumnoId: "a2", fecha: "2026-10-05T18:00:00", mes: 10, anio: 2026,
-  modalidad: "dosdias", importe: 49,
+  modalidad: "dosdias", forma: "metalico", importe: 40,
 });
 
 S.alumnos = [maria, ana, luis];
@@ -114,6 +114,7 @@ function guardarEnStore(tabla, registro) {
 }
 globalThis.FTDB = {
   abrir: function () { return Promise.resolve(); },
+  limpiarDatosAntiguos: function () { return Promise.resolve(); },
   listarAlumnos: function () { return Promise.resolve(STORE.alumnos.slice()); },
   listarPagos: function () { return Promise.resolve(STORE.pagos.slice()); },
   leerMeta: function (clave) { return Promise.resolve(STORE.meta[clave] || null); },
@@ -158,15 +159,33 @@ console.log("\n== Resumen mensual ==");
 S.resumen = { mes: 10, anio: 2026 };
 const resumen = UI.htmlResumen();
 contiene(resumen, "Cobrado en octubre de 2026", "cabecera del total cobrado");
-contiene(resumen, "99,00 €", "total de octubre = 50 + 49 = 99 €");
+contiene(resumen, "90,00 €", "total de octubre = 50 + 40 = 90 €");
 contiene(resumen, "2 pago(s)", "número de pagos del mes");
+contiene(resumen, "Por transferencia", "muestra el total por transferencia");
+contiene(resumen, "En metálico", "muestra el total en metálico");
+contiene(resumen, "50,00 €", "transferencia = 50 €");
+contiene(resumen, "40,00 €", "metálico = 40 €");
 contiene(resumen, "Desglose por modalidad", "hay desglose por modalidad");
 contiene(resumen, "Tarifa plana", "…de tarifa plana");
 contiene(resumen, "Dos días a la semana", "…de dos días a la semana");
 contiene(resumen, "Abonado ✓", "los abonados según el periodo llevan insignia");
 contiene(resumen, "fecha del cobro", "avisa de que el total va por fecha de cobro");
 contiene(resumen, "mes y año abonados", "avisa de que la lista va por periodo pagado");
+noContiene(resumen, "49", "el resumen no muestra ninguna tarifa de 49 €");
 noContiene(resumen, "Luis Vega", "los alumnos archivados no aparecen en la lista de activos");
+
+// Verificación pedida: 50 € transferencia + 40 € + 30 € metálico = 120 / 50 / 70
+S.pagos = [
+  pagoOk,
+  pagoAna,
+  FT.crearPago({ id: "p3", alumnoId: "a3", fecha: "2026-10-09T12:00:00", mes: 10, anio: 2026, modalidad: "mediomes", forma: "metalico", importe: 30 }),
+];
+const resumenVerificación = UI.htmlResumenContenido();
+contiene(resumenVerificación, "120,00 €", "total verificado = 120 €");
+contiene(resumenVerificación, "50,00 €", "transferencia verificada = 50 €");
+contiene(resumenVerificación, "70,00 €", "metálico verificado = 70 €");
+contiene(resumenVerificación, "Medio mes, dos días a la semana", "aparece la modalidad de medio mes");
+S.pagos = [pagoOk, pagoAna];
 
 S.resumen = { mes: 11, anio: 2026 };
 const resumenNov = UI.htmlResumenContenido();
@@ -181,6 +200,7 @@ console.log("\n== Registrar pago ==");
 S.pago = UI.nuevoBorradorPago();
 igualDefault(S.pago.modalidad, "plana", "la modalidad por defecto es tarifa plana");
 igualDefault(S.pago.importe, "50", "el importe se rellena con 50");
+igualDefault(S.pago.forma, "", "la forma de pago nace sin marcar: hay que elegirla");
 const picker = UI.htmlPago();
 contiene(picker, "Selecciona al alumno", "sin alumno, pide elegir primero");
 contiene(picker, "María García López", "ofrece a los alumnos");
@@ -191,16 +211,42 @@ contiene(form, "Guardar pago", "hay botón «Guardar pago»");
 contiene(form, "Tarifa plana", "ofrece la modalidad tarifa plana");
 contiene(form, "50 € al mes", "…con su precio");
 contiene(form, "Dos días a la semana", "ofrece la modalidad de dos días");
-contiene(form, "49 € al mes", "…con su precio");
+contiene(form, "40 € al mes", "…con su precio de 40 €");
+contiene(form, "Medio mes, dos días a la semana", "ofrece la modalidad de medio mes");
+contiene(form, "30 €", "…con su precio de 30 €");
+noContiene(form, "49", "el formulario no ofrece la tarifa antigua de 49 €");
 contiene(form, 'id="pago-importe"', "hay campo de importe");
 contiene(form, 'value="50"', "el importe viene relleno a 50");
 contiene(form, "Periodo que se está pagando", "está el selector de mes y año abonados");
 contiene(form, `<option value="${new Date().getMonth() + 1}" selected>`, "el mes por defecto es el actual");
 contiene(form, `<option value="${new Date().getFullYear()}" selected>`, "el año por defecto es el actual");
-contiene(form, "Método de pago", "se muestra el método de pago");
-contiene(form, "Metálico", "el método es metálico");
+contiene(form, "Forma de pago", "se pide la forma de pago");
+contiene(form, 'data-accion="forma-pago" data-valor="transferencia"', "ofrece transferencia");
+contiene(form, 'data-accion="forma-pago" data-valor="metalico"', "ofrece metálico");
+contiene(form, "Elige transferencia o metálico: es obligatorio", "avisa de que es obligatoria");
 contiene(form, "Observaciones", "hay campo de observaciones");
 contiene(form, "Se asigna al guardar (hora local)", "la fecha del cobro se pone al guardar");
+
+// Al elegir modalidad, el importe se rellena solo (incluida la de 30 €)
+S.pago.modalidad = "mediomes";
+S.pago.importe = String(FT.importeDeModalidad("mediomes"));
+contiene(UI.htmlPago(), 'value="30"', "al elegir medio mes el importe pasa a 30");
+S.pago.modalidad = "dosdias";
+S.pago.importe = String(FT.importeDeModalidad("dosdias"));
+contiene(UI.htmlPago(), 'value="40"', "al elegir dos días el importe pasa a 40");
+S.pago.modalidad = "plana";
+S.pago.importe = "50";
+
+// La forma de pago elegida se marca
+S.pago.forma = "transferencia";
+const conForma = UI.htmlPago();
+contiene(conForma, 'data-valor="transferencia" aria-pressed="true"', "la forma elegida queda marcada");
+contiene(conForma, "Transferencia ✓", "…con su marca de selección");
+S.pago.forma = "";
+
+// Falta la forma de pago: la validación lo dice
+igualDefault(FT.validarPago({ alumnoId: "a1", mes: 10, anio: 2026, modalidad: "plana", forma: "", importe: 50 }).length, 1,
+  "sin forma de pago no se puede guardar");
 
 // Aviso de duplicado
 S.pago.mes = 10;
@@ -221,10 +267,12 @@ S.pago.errores = [];
 // Edición
 S.pago.editandoId = "p1";
 S.pago.fechaOriginal = "2026-10-03T10:15:00";
+S.pago.forma = "transferencia";
 const editando = UI.htmlPago();
 contiene(editando, "Editar pago", "en edición el título cambia");
 contiene(editando, "03/10/2026 10:15", "muestra la fecha original del cobro");
 contiene(editando, "Guardar cambios", "el botón pasa a «Guardar cambios»");
+contiene(editando, 'data-valor="transferencia" aria-pressed="true"', "en edición se marca la forma del pago");
 noContiene(editando, 'data-accion="cambiar-alumno"', "al editar no se puede cambiar el alumno desde aquí");
 
 // Confirmación tras guardar
@@ -235,6 +283,7 @@ contiene(guardado, "Pago guardado", "confirma que el pago se guardó");
 contiene(guardado, "50,00 €", "muestra el importe");
 contiene(guardado, "octubre de 2026", "muestra el periodo abonado");
 contiene(guardado, "03/10/2026 10:15", "muestra la fecha del cobro");
+contiene(guardado, "Transferencia", "muestra la forma de pago");
 contiene(guardado, "Registrar otro pago", "ofrece registrar otro pago");
 S.pago = UI.nuevoBorradorPago();
 
@@ -293,7 +342,9 @@ contiene(campos, 'id="alumno-apellidos"', "el formulario pide los apellidos");
 contiene(campos, "Tarifa plana", "ofrece la modalidad tarifa plana");
 contiene(campos, "50 € al mes", "…con su precio de 50 €/mes");
 contiene(campos, "Dos días a la semana", "ofrece la modalidad de dos días por semana");
-contiene(campos, "49 € al mes", "…con su precio de 49 €/mes");
+contiene(campos, "40 € al mes", "…con su precio de 40 €/mes");
+contiene(campos, "Medio mes, dos días a la semana", "ofrece la modalidad de medio mes");
+noContiene(campos, "49", "el diálogo no ofrece la tarifa antigua de 49 €");
 contiene(ELEMENTOS["modal-botones"].innerHTML, ">Guardar</button>", "hay botón «Guardar»");
 contiene(ELEMENTOS["modal-botones"].innerHTML, ">Cancelar</button>", "hay botón «Cancelar»");
 
@@ -306,6 +357,7 @@ ok(!capa.hidden, "el diálogo sigue abierto si falta información");
 
 // Se puede escribir y elegir modalidad
 await UI.manejarAccion("alumno-modalidad", "dosdias");
+igualDefault(S.borradorAlumno.modalidad, "dosdias", "la modalidad elegida queda en el borrador");
 S.borradorAlumno.nombre = "Paula";
 S.borradorAlumno.apellidos = "Sanz Ortiz";
 UI.pintarFormularioEnModal();
@@ -351,7 +403,9 @@ const historial = UI.htmlHistorial();
 contiene(historial, "Fecha del cobro", "muestra la fecha del cobro");
 contiene(historial, "Mes y año abonados", "muestra el mes y año abonados");
 contiene(historial, "Modalidad", "muestra la modalidad");
-contiene(historial, "Método de pago", "muestra el método de pago");
+contiene(historial, "Forma de pago", "muestra la forma de pago");
+contiene(historial, "Transferencia", "…la del pago por transferencia");
+contiene(historial, "Metálico", "…y la del pago en metálico");
 contiene(historial, "Observaciones", "muestra las observaciones");
 contiene(historial, "María García López", "muestra el nombre del alumno");
 contiene(historial, "50,00 €", "muestra el importe en euros");
@@ -363,8 +417,15 @@ contiene(historial, ">Editar<", "permite editar un pago");
 contiene(historial, ">Eliminar<", "permite eliminar un pago");
 contiene(historial, "Todos los meses", "filtro de meses con «todos»");
 contiene(historial, "Todas las modalidades", "filtro de modalidades con «todas»");
+contiene(historial, "Todas las formas de pago", "filtro de formas de pago con «todas»");
 contiene(historial, "Limpiar filtros", "hay botón para limpiar filtros");
 contiene(historial, "2 pago(s)", "cuenta los pagos que se muestran");
+
+S.filtros.forma = "metalico";
+const historialMetalico = UI.htmlListaHistorial();
+contiene(historialMetalico, "Ana Ruiz", "el filtro por metálico deja el pago de Ana");
+noContiene(historialMetalico, "María García López", "…y quita el pago por transferencia");
+S.filtros.forma = "";
 
 S.busqueda.historial = "ana";
 const historialAna = UI.htmlListaHistorial();
@@ -386,7 +447,37 @@ S.pago = UI.nuevoBorradorPago();
 
 /* ---------------- copias ---------------- */
 
+/* ---------------- registrar pago completo (acciones, no solo HTML) ---------------- */
+
+console.log("\n== Registrar un pago con forma de pago ==");
+S.pago = UI.nuevoBorradorPago();
+S.pago.alumnoId = "a1";
+S.pago.mes = 12;
+S.pago.anio = 2026;
+// Sin forma de pago no se guarda nada.
+await UI.manejarAccion("guardar-pago");
+igualDefault(STORE.pagos.filter((p) => p.mes === 12).length, 0, "sin forma de pago no se guarda el pago");
+ok(S.pago.errores.length > 0, "la pantalla muestra el error de la forma de pago");
+// Se elige metálico y se guarda.
+await UI.manejarAccion("forma-pago", "metalico");
+igualDefault(S.pago.forma, "metalico", "la forma de pago elegida queda en el borrador");
+await UI.manejarAccion("guardar-pago");
+const guardadoNuevo = STORE.pagos.filter((p) => p.mes === 12 && p.alumnoId === "a1")[0];
+ok(!!guardadoNuevo, "el pago se guarda con la forma elegida");
+igualDefault(guardadoNuevo && guardadoNuevo.forma, "metalico", "…y queda como metálico en el almacén");
+ok(!!(S.pago.guardado), "la pantalla confirma el pago guardado");
+// El pago sigue en el almacén tras «recargar» la app.
+await UI.manejarAccion("ir", "historial");
+S.pagos = STORE.pagos.slice();
+contiene(UI.htmlListaHistorial(), "diciembre de 2026", "el pago nuevo sigue ahí tras recargar los datos");
+STORE.pagos = STORE.pagos.filter((p) => p !== guardadoNuevo);
+S.pagos = [pagoOk, pagoAna];
+S.pago = UI.nuevoBorradorPago();
+
+/* ---------------- copias ---------------- */
+
 console.log("\n== Copias de seguridad ==");
+S.alumnos = [maria, ana, luis];
 const copias = UI.htmlCopias();
 contiene(copias, "Exportar copia completa (JSON)", "botón de exportar JSON");
 contiene(copias, "Importar copia (JSON)", "botón de importar JSON");
@@ -396,6 +487,8 @@ contiene(copias, "no se borran al actualizar la app", "avisa de que actualizar n
 contiene(copias, "3 alumno(s)", "cuenta los alumnos");
 contiene(copias, "2 pago(s)", "cuenta los pagos");
 contiene(copias, "Versión de la app: " + UI.VERSION, "muestra la versión de la app");
+igualDefault(UI.VERSION, "1.2.0", "la versión de la app es la 1.2.0");
+contiene(copias, "Versión de la app: 1.2.0", "…y se ve en Copias");
 
 /* ---------------- escapado de HTML ---------------- */
 

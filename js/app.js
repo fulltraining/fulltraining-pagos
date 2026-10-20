@@ -9,7 +9,7 @@
 (function () {
   /* Versión visible en «Copias de seguridad».
      Debe coincidir con «version» de manifest.json (lo comprueba tests/estaticas.py). */
-  const VERSION = "1.1.0";
+  const VERSION = "1.2.0";
 
   /* ---------------- estado ---------------- */
 
@@ -19,6 +19,8 @@
       alumnoId: null,
       modalidad: "plana",
       importe: String(FT.importeDeModalidad("plana")),
+      // La forma de pago no viene marcada: hay que elegirla al registrar.
+      forma: "",
       mes: hoy.getMonth() + 1,
       anio: hoy.getFullYear(),
       observaciones: "",
@@ -46,7 +48,7 @@
     borradorAlumno: nuevoBorradorAlumno(),
     pago: nuevoBorradorPago(),
     resumen: { mes: new Date().getMonth() + 1, anio: new Date().getFullYear() },
-    filtros: { texto: "", mes: "", anio: "", modalidad: "", criterio: "periodo" },
+    filtros: { texto: "", mes: "", anio: "", modalidad: "", forma: "", criterio: "periodo" },
     guardando: false,
   };
 
@@ -186,6 +188,16 @@
     return html;
   }
 
+  function opcionesForma(seleccion, conTodas) {
+    let html = conTodas
+      ? `<option value=""${String(seleccion) === "" ? " selected" : ""}>Todas las formas de pago</option>`
+      : "";
+    FT.FORMAS_PAGO_ORDEN.forEach((k) => {
+      html += `<option value="${k}"${String(seleccion) === k ? " selected" : ""}>${FT.FORMAS_PAGO[k].nombre}</option>`;
+    });
+    return html;
+  }
+
   function opcionesModalidad(seleccion, conTodas) {
     let html = conTodas
       ? `<option value=""${String(seleccion) === "" ? " selected" : ""}>Todas las modalidades</option>`
@@ -294,7 +306,7 @@
     if (!b.avisos || b.avisos.length === 0) return "";
     const alumno = FT.alumnoPorId(S.alumnos, b.alumnoId);
     const lista = b.avisos.map((p) =>
-      `<li>${euros(p.importe)} · ${esc(FT.nombreDeModalidad(p.modalidad))} · cobrado el ${FT.fechaHoraCorta(p.fecha)}</li>`
+      `<li>${euros(p.importe)} · ${esc(FT.nombreDeModalidad(p.modalidad))} · ${esc(FT.nombreDeForma(FT.formaDePago(p)))} · cobrado el ${FT.fechaHoraCorta(p.fecha)}</li>`
     ).join("");
     return `<div class="aviso" role="alert">
       <p><strong>⚠ Ya hay ${b.avisos.length} pago(s) de ${esc(FT.nombreCompleto(alumno))} para ${esc(FT.etiquetaPeriodo(b.mes, b.anio))}.</strong></p>
@@ -319,6 +331,15 @@
       return `<button type="button" class="tarjeta-radio${activa ? " activa" : ""}" data-accion="modalidad" data-valor="${k}" aria-pressed="${activa}">
         <span class="titulo-modalidad">${esc(mod.nombre)}${activa ? " ✓" : ""}</span>
         <span class="detalle-modalidad">${esc(mod.detalle)}</span>
+      </button>`;
+    }).join("");
+
+    const formas = FT.FORMAS_PAGO_ORDEN.map((k) => {
+      const f = FT.FORMAS_PAGO[k];
+      const activa = b.forma === k;
+      return `<button type="button" class="tarjeta-radio${activa ? " activa" : ""}" data-accion="forma-pago" data-valor="${k}" aria-pressed="${activa}">
+        <span class="titulo-modalidad">${esc(f.nombre)}${activa ? " ✓" : ""}</span>
+        <span class="detalle-modalidad">${esc(f.detalle)}</span>
       </button>`;
     }).join("");
 
@@ -366,10 +387,12 @@
           <span class="etiqueta">Fecha y hora del cobro</span>
           <span>${editando ? FT.fechaHoraCorta(b.fechaOriginal) : "Se asigna al guardar (hora local)"}</span>
         </div>
-        <div class="fila-estatica">
-          <span class="etiqueta">Método de pago</span>
-          <span class="chip">${esc(FT.metodoPago())}</span>
-        </div>
+      </section>
+
+      <section class="tarjeta">
+        <h3>Forma de pago</h3>
+        <div class="modalidades" role="group" aria-label="Forma de pago">${formas}</div>
+        ${b.forma ? "" : `<p class="nota">Elige transferencia o metálico: es obligatorio.</p>`}
       </section>
 
       <section class="tarjeta">
@@ -392,7 +415,7 @@
         <p class="ok-titulo">✓ ${editado ? "Pago actualizado" : "Pago guardado"}</p>
         <p class="detalle fuerte">${esc(FT.nombreCompleto(alumno))} — ${euros(p.importe)}</p>
         <p class="detalle">Periodo abonado: ${esc(FT.etiquetaPeriodo(p.mes, p.anio))}</p>
-        <p class="detalle">Cobro: ${FT.fechaHoraCorta(p.fecha)} · ${esc(p.metodo)}</p>
+        <p class="detalle">Cobro: ${FT.fechaHoraCorta(p.fecha)} · ${esc(FT.nombreDeForma(FT.formaDePago(p)))}</p>
         <p class="detalle">Modalidad: ${esc(FT.nombreDeModalidad(p.modalidad))}</p>
         ${p.observaciones ? `<p class="nota">Observaciones: ${esc(p.observaciones)}</p>` : ""}
         <div class="botones-apilados">
@@ -523,7 +546,7 @@
           <div><dt>Fecha del cobro</dt><dd>${FT.fechaHoraCorta(p.fecha)}</dd></div>
           <div><dt>Mes y año abonados</dt><dd>${esc(FT.etiquetaPeriodo(p.mes, p.anio))}</dd></div>
           <div><dt>Modalidad</dt><dd>${esc(FT.nombreDeModalidad(p.modalidad))}</dd></div>
-          <div><dt>Método de pago</dt><dd>${esc(p.metodo || FT.metodoPago())}</dd></div>
+          <div><dt>Forma de pago</dt><dd>${esc(FT.nombreDeForma(FT.formaDePago(p)))}</dd></div>
           ${p.observaciones ? `<div><dt>Observaciones</dt><dd>${esc(p.observaciones)}</dd></div>` : ""}
         </dl>
         <div class="botones-fila">
@@ -539,6 +562,7 @@
       mes: S.filtros.mes,
       anio: S.filtros.anio,
       modalidad: S.filtros.modalidad,
+      forma: S.filtros.forma,
       criterio: S.filtros.criterio,
     });
     if (S.pagos.length === 0) {
@@ -587,6 +611,10 @@
             <label class="etiqueta" for="filtro-modalidad">Modalidad</label>
             <select class="select" id="filtro-modalidad" data-campo="filtro-modalidad">${opcionesModalidad(S.filtros.modalidad, true)}</select>
           </div>
+          <div>
+            <label class="etiqueta" for="filtro-forma">Forma de pago</label>
+            <select class="select" id="filtro-forma" data-campo="filtro-forma">${opcionesForma(S.filtros.forma, true)}</select>
+          </div>
         </div>
         <div class="botones-fila">
           <button type="button" class="btn btn-mini" data-accion="limpiar-filtros">Limpiar filtros</button>
@@ -626,7 +654,15 @@
       <section class="tarjeta">
         <h3>Cobrado en ${esc(etiqueta)}</h3>
         <p class="cifra-grande">${euros(r.total)}</p>
-        <p class="nota">${r.nPagos} pago(s) en metálico · calculado por la <strong>fecha del cobro</strong>.</p>
+        <p class="nota">${r.nPagos} pago(s) · total calculado por la <strong>fecha del cobro</strong>.</p>
+        <div class="desglose-row">
+          <span><strong>Por transferencia</strong></span>
+          <span style="text-align:right"><strong>${euros(r.totalTransferencia)}</strong><br><span class="nota">${r.porForma.transferencia.cantidad} pago(s)</span></span>
+        </div>
+        <div class="desglose-row">
+          <span><strong>En metálico</strong></span>
+          <span style="text-align:right"><strong>${euros(r.totalMetalico)}</strong><br><span class="nota">${r.porForma.metalico.cantidad} pago(s)</span></span>
+        </div>
       </section>
 
       <section class="tarjeta">
@@ -728,6 +764,7 @@
       mes: b.mes,
       anio: b.anio,
       modalidad: b.modalidad,
+      forma: b.forma,
       importe: b.importe,
     });
     if (errores.length) {
@@ -759,6 +796,7 @@
           mes: b.mes,
           anio: b.anio,
           modalidad: b.modalidad,
+          forma: b.forma,
           importe: b.importe,
           observaciones: b.observaciones,
         });
@@ -769,6 +807,7 @@
           mes: b.mes,
           anio: b.anio,
           modalidad: b.modalidad,
+          forma: b.forma,
           importe: b.importe,
           observaciones: b.observaciones,
         });
@@ -965,6 +1004,12 @@
         render();
         break;
 
+      case "forma-pago":
+        S.pago.forma = FT.FORMAS_PAGO[valor] ? valor : "";
+        S.pago.aceptarDuplicado = false;
+        render();
+        break;
+
       case "guardar-pago":
         await guardarPago();
         break;
@@ -977,7 +1022,7 @@
       case "revisar-existentes": {
         const alumno = FT.alumnoPorId(S.alumnos, S.pago.alumnoId);
         S.busqueda.historial = alumno ? FT.nombreCompleto(alumno) : "";
-        S.filtros = { texto: "", mes: S.pago.mes, anio: S.pago.anio, modalidad: "", criterio: "periodo" };
+        S.filtros = { texto: "", mes: S.pago.mes, anio: S.pago.anio, modalidad: "", forma: "", criterio: "periodo" };
         ir("historial");
         break;
       }
@@ -992,6 +1037,7 @@
         S.pago = Object.assign(nuevoBorradorPago(), {
           alumnoId: pago.alumnoId,
           modalidad: pago.modalidad,
+          forma: FT.formaDePago(pago),
           importe: String(pago.importe),
           mes: pago.mes,
           anio: pago.anio,
@@ -1049,7 +1095,7 @@
         break;
 
       case "limpiar-filtros":
-        S.filtros = { texto: "", mes: "", anio: "", modalidad: "", criterio: "periodo" };
+        S.filtros = { texto: "", mes: "", anio: "", modalidad: "", forma: "", criterio: "periodo" };
         S.busqueda.historial = "";
         render();
         break;
@@ -1135,6 +1181,10 @@
         S.filtros.modalidad = valor;
         pintarEn("lista-historial", htmlListaHistorial());
         break;
+      case "filtro-forma":
+        S.filtros.forma = valor;
+        pintarEn("lista-historial", htmlListaHistorial());
+        break;
       case "alumno-nombre":
         S.borradorAlumno.nombre = valor;
         break;
@@ -1201,7 +1251,14 @@
       this.value = "";
     });
 
-    recargar()
+    // Borra una sola vez los datos anteriores a la versión 1.2.0 (marca en
+    // IndexedDB). En aperturas siguientes no toca nada de lo ya guardado.
+    FTDB.limpiarDatosAntiguos()
+      .catch((e) => {
+        // Si el almacén no está disponible, el error real se muestra al recargar.
+        console.error(e);
+      })
+      .then(() => recargar())
       .then(() => render())
       .catch((e) => {
         console.error(e);

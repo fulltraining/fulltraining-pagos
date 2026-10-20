@@ -46,10 +46,10 @@ igual(FT.fechaLocalAhora(turnoMedianoche), "2026-12-31T23:59:59", "último día 
 
 console.log("\n== Importes en euros ==");
 igual(FT.euros(50), "50,00 €", "50 → 50,00 €");
-igual(FT.euros(49), "49,00 €", "49 → 49,00 €");
+igual(FT.euros(40), "40,00 €", "40 → 40,00 €");
 igual(FT.euros(1234.5), "1.234,50 €", "miles con punto y decimales con coma");
 igual(FT.euros(0), "0,00 €", "0 → 0,00 €");
-igual(FT.euros("49"), "49,00 €", "acepta texto numérico");
+igual(FT.euros("30"), "30,00 €", "acepta texto numérico");
 
 /* ---------------- alumnos ---------------- */
 
@@ -83,22 +83,49 @@ igual(FT.modalidadDeAlumno({ nombre: "Antiguo", apellidos: "Sin Modalidad" }), "
 igual(FT.modalidadDeAlumno({ modalidad: "dosdias" }), "dosdias", "modalidadDeAlumno lee la modalidad del alumno");
 igual(FT.modalidadDeAlumno(null), "plana", "modalidadDeAlumno aguanta alumnos inexistentes");
 
+/* ---------------- modalidades y formas de pago ---------------- */
+
+console.log("\n== Modalidades y formas de pago ==");
+igual(FT.MODALIDADES_ORDEN.join(","), "plana,dosdias,mediomes", "hay exactamente tres modalidades");
+igual(FT.importeDeModalidad("plana"), 50, "tarifa plana = 50 €");
+igual(FT.importeDeModalidad("dosdias"), 40, "dos días a la semana = 40 €");
+igual(FT.importeDeModalidad("mediomes"), 30, "medio mes, dos días = 30 €");
+igual(FT.detalleDeModalidad("mediodias"), "", "una modalidad que no existe no tiene detalle");
+ok(FT.detalleDeModalidad("plana").indexOf("50") !== -1, "el detalle de la tarifa plana lleva su precio");
+ok(FT.detalleDeModalidad("dosdias").indexOf("40") !== -1, "el detalle de dos días lleva 40 €");
+ok(FT.detalleDeModalidad("mediomes").indexOf("30") !== -1, "el detalle de medio mes lleva 30 €");
+igual(FT.nombreDeModalidad("mediomes"), "Medio mes, dos días a la semana", "nombre de la modalidad de medio mes");
+ok(FT.MODALIDADES_ORDEN.every((k) => String(FT.importeDeModalidad(k)) !== "49"), "ninguna modalidad cuesta 49 €");
+
+igual(FT.FORMAS_PAGO_ORDEN.join(","), "transferencia,metalico", "hay dos formas de pago");
+igual(FT.nombreDeForma("transferencia"), "Transferencia", "nombre de la forma transferencia");
+igual(FT.nombreDeForma("metalico"), "Metálico", "nombre de la forma metálico");
+igual(FT.nombreDeForma("bizum"), "Metálico", "una forma desconocida no rompe el nombre");
+igual(FT.formaDePago({ forma: "transferencia" }), "transferencia", "lee la forma guardada");
+igual(FT.formaDePago({}), "metalico", "un pago antiguo sin forma se lee como metálico");
+igual(FT.formaDePago(null), "metalico", "formaDePago aguanta pagos inexistentes");
+
 /* ---------------- validación y duplicados de pagos ---------------- */
 
 console.log("\n== Registro de pago ==");
-igual(FT.validarPago({ mes: 10, anio: 2026, modalidad: "plana", importe: 50 }).length, 1, "falta el alumno");
-igual(FT.validarPago({ alumnoId: "x", mes: 13, anio: 2026, modalidad: "plana", importe: 50 }).length, 1, "mes inválido");
-igual(FT.validarPago({ alumnoId: "x", mes: 10, anio: 2026, modalidad: "plana", importe: 0 }).length, 1, "importe 0");
-igual(FT.validarPago({ alumnoId: "x", mes: 10, anio: 2026, modalidad: "dosdias", importe: 49 }).length, 0, "pago válido");
+igual(FT.validarPago({ mes: 10, anio: 2026, modalidad: "plana", forma: "metalico", importe: 50 }).length, 1, "falta el alumno");
+igual(FT.validarPago({ alumnoId: "x", mes: 13, anio: 2026, modalidad: "plana", forma: "metalico", importe: 50 }).length, 1, "mes inválido");
+igual(FT.validarPago({ alumnoId: "x", mes: 10, anio: 2026, modalidad: "plana", forma: "metalico", importe: 0 }).length, 1, "importe 0");
+igual(FT.validarPago({ alumnoId: "x", mes: 10, anio: 2026, modalidad: "plana", importe: 50 }).length, 1, "falta la forma de pago");
+igual(FT.validarPago({ alumnoId: "x", mes: 10, anio: 2026, modalidad: "plana", forma: "", importe: 50 }).length, 1, "forma de pago vacía");
+igual(FT.validarPago({ alumnoId: "x", mes: 10, anio: 2026, modalidad: "inventada", forma: "metalico", importe: 50 }).length, 1, "modalidad inválida");
+igual(FT.validarPago({ alumnoId: "x", mes: 10, anio: 2026, modalidad: "dosdias", forma: "transferencia", importe: 40 }).length, 0, "pago válido");
 
 const pago1 = FT.crearPago({
   alumnoId: maria.id, fecha: "2026-10-03T10:15:00", mes: 10, anio: 2026,
-  modalidad: "plana", importe: 50, observaciones: " Entrega en mano ",
+  modalidad: "plana", forma: "transferencia", importe: 50, observaciones: " Entrega en mano ",
 });
-igual(pago1.metodo, "Metálico", "el método de pago es Metálico");
+igual(pago1.forma, "transferencia", "se guarda la forma de pago elegida");
 igual(pago1.observaciones, "Entrega en mano", "recorta observaciones");
-const pago2 = FT.crearPago({ alumnoId: "otro", fecha: "2026-10-05T10:00:00", mes: 10, anio: 2026, modalidad: "dosdias", importe: 49 });
-const pago3 = FT.crearPago({ alumnoId: maria.id, fecha: "2026-11-02T10:00:00", mes: 11, anio: 2026, modalidad: "plana", importe: 50 });
+igual(FT.crearPago({ alumnoId: "x", modalidad: "plana", forma: "" }).forma, "metalico",
+  "una forma vacía cae en metálico (no rompe los datos)");
+const pago2 = FT.crearPago({ alumnoId: "otro", fecha: "2026-10-05T10:00:00", mes: 10, anio: 2026, modalidad: "dosdias", forma: "metalico", importe: 40 });
+const pago3 = FT.crearPago({ alumnoId: maria.id, fecha: "2026-11-02T10:00:00", mes: 11, anio: 2026, modalidad: "plana", forma: "transferencia", importe: 50 });
 const pagos = [pago1, pago2, pago3];
 
 igual(FT.pagosDuplicados(pagos, { alumnoId: maria.id, mes: 10, anio: 2026 }).length, 1, "detecta duplicado del mismo periodo");
@@ -117,20 +144,26 @@ const activos = [
 // María paga octubre el 3/10 y noviembre por adelantado el 6/10.
 // Ana paga octubre el 5/10. Luis (archivado) paga octubre el 10/10.
 const cobros = [
-  FT.crearPago({ id: "p1", alumnoId: "a1", fecha: "2026-10-03T10:00:00", mes: 10, anio: 2026, modalidad: "plana", importe: 50 }),
-  FT.crearPago({ id: "p2", alumnoId: "a2", fecha: "2026-10-05T18:30:00", mes: 10, anio: 2026, modalidad: "dosdias", importe: 49 }),
-  FT.crearPago({ id: "p3", alumnoId: "a1", fecha: "2026-10-06T09:00:00", mes: 11, anio: 2026, modalidad: "plana", importe: 50 }),
-  FT.crearPago({ id: "p4", alumnoId: "a3", fecha: "2026-10-10T12:00:00", mes: 10, anio: 2026, modalidad: "plana", importe: 50 }),
-  FT.crearPago({ id: "p5", alumnoId: "a2", fecha: "2026-09-02T12:00:00", mes: 9, anio: 2026, modalidad: "dosdias", importe: 49 }),
+  FT.crearPago({ id: "p1", alumnoId: "a1", fecha: "2026-10-03T10:00:00", mes: 10, anio: 2026, modalidad: "plana", forma: "transferencia", importe: 50 }),
+  FT.crearPago({ id: "p2", alumnoId: "a2", fecha: "2026-10-05T18:30:00", mes: 10, anio: 2026, modalidad: "dosdias", forma: "metalico", importe: 40 }),
+  FT.crearPago({ id: "p3", alumnoId: "a1", fecha: "2026-10-06T09:00:00", mes: 11, anio: 2026, modalidad: "plana", forma: "transferencia", importe: 50 }),
+  FT.crearPago({ id: "p4", alumnoId: "a3", fecha: "2026-10-10T12:00:00", mes: 10, anio: 2026, modalidad: "plana", forma: "metalico", importe: 50 }),
+  FT.crearPago({ id: "p5", alumnoId: "a2", fecha: "2026-09-02T12:00:00", mes: 9, anio: 2026, modalidad: "dosdias", forma: "metalico", importe: 40 }),
 ];
 
 const rOctubre = FT.resumenMensual(cobros, activos, 10, 2026);
 igual(rOctubre.nPagos, 4, "octubre: 4 cobros con fecha en el mes");
-igual(rOctubre.total, 199, "total cobrado en octubre = 50+49+50+50 = 199 €");
+igual(rOctubre.total, 190, "total cobrado en octubre = 50+40+50+50 = 190 €");
+igual(rOctubre.totalTransferencia, 100, "octubre: 100 € por transferencia (50 + 50)");
+igual(rOctubre.totalMetalico, 90, "octubre: 90 € en metálico (40 + 50)");
+igual(rOctubre.totalTransferencia + rOctubre.totalMetalico, rOctubre.total,
+  "transferencia + metálico = total cobrado");
+igual(rOctubre.porForma.transferencia.cantidad, 2, "octubre: 2 pagos por transferencia");
+igual(rOctubre.porForma.metalico.cantidad, 2, "octubre: 2 pagos en metálico");
 igual(rOctubre.porModalidad.plana.cantidad, 3, "octubre: 3 de tarifa plana");
 igual(rOctubre.porModalidad.plana.total, 150, "octubre: 150 € en tarifa plana");
 igual(rOctubre.porModalidad.dosdias.cantidad, 1, "octubre: 1 de dos días");
-igual(rOctubre.porModalidad.dosdias.total, 49, "octubre: 49 € en dos días");
+igual(rOctubre.porModalidad.dosdias.total, 40, "octubre: 40 € en dos días");
 igual(rOctubre.filas.length, 2, "la lista solo incluye alumnos activos");
 igual(rOctubre.abonados, 2, "los dos activos han abonado octubre según el periodo");
 igual(rOctubre.pendientes, 0, "nadie pendiente en octubre");
@@ -142,9 +175,24 @@ igual(rNoviembre.abonados, 1, "noviembre: María abonó (periodo), aunque pagó 
 igual(rNoviembre.pendientes, 1, "noviembre: Ana pendiente (periodo)");
 
 const rSeptiembre = FT.resumenMensual(cobros, activos, 9, 2026);
-igual(rSeptiembre.total, 49, "septiembre: 49 € cobrados");
+igual(rSeptiembre.total, 40, "septiembre: 40 € cobrados");
+igual(rSeptiembre.totalTransferencia, 0, "septiembre: nada por transferencia");
+igual(rSeptiembre.totalMetalico, 40, "septiembre: los 40 € fueron en metálico");
 igual(rSeptiembre.abonados, 1, "septiembre: Ana abonó el periodo");
 igual(rSeptiembre.pendientes, 1, "septiembre: María pendiente (periodo)");
+
+/* Verificación pedida: 50 € por transferencia + 40 € y 30 € en metálico
+   → total 120 €, transferencia 50 €, metálico 70 €. */
+console.log("\n== Verificación de totales (50 transferencia + 40 y 30 metálico) ==");
+const verificación = [
+  FT.crearPago({ id: "v1", alumnoId: "a1", fecha: "2026-10-07T10:00:00", mes: 10, anio: 2026, modalidad: "plana", forma: "transferencia", importe: 50 }),
+  FT.crearPago({ id: "v2", alumnoId: "a2", fecha: "2026-10-08T11:00:00", mes: 10, anio: 2026, modalidad: "dosdias", forma: "metalico", importe: 40 }),
+  FT.crearPago({ id: "v3", alumnoId: "a3", fecha: "2026-10-09T12:00:00", mes: 10, anio: 2026, modalidad: "mediomes", forma: "metalico", importe: 30 }),
+];
+const rVerificación = FT.resumenMensual(verificación, activos, 10, 2026);
+igual(rVerificación.total, 120, "total = 120 €");
+igual(rVerificación.totalTransferencia, 50, "por transferencia = 50 €");
+igual(rVerificación.totalMetalico, 70, "en metálico = 70 €");
 
 /* ---------------- historial: buscar y filtrar ---------------- */
 
@@ -171,6 +219,9 @@ igual(periodoOct.length, 3, "por periodo abonado: solo los 3 que abonan octubre"
 
 igual(FT.filtrarPagos(todos, alumnos, { anio: 2026 }).length, 3, "filtro por año");
 igual(FT.filtrarPagos(todos, alumnos, { modalidad: "dosdias" }).length, 1, "filtro por modalidad");
+igual(FT.filtrarPagos(todos, alumnos, { forma: "transferencia" }).length, 2, "filtro por forma de pago");
+igual(FT.filtrarPagos(todos, alumnos, { forma: "metalico" }).length, 1, "filtro por metálico");
+igual(FT.filtrarPagos(cobros, alumnos, { forma: "transferencia" }).length, 2, "el filtro de forma no cuenta los antiguos sin forma aparte");
 const ordenHistorial = FT.filtrarPagos(todos, alumnos, {});
 igual(ordenHistorial[0].fecha, "2026-11-02T10:00:00", "el más reciente primero");
 igual(ordenHistorial[2].fecha, "2026-10-03T10:15:00", "el más antiguo al final");
@@ -185,7 +236,7 @@ console.log("\n== CSV ==");
 const csv = FT.csvPagos([
   FT.crearPago({
     id: "c1", alumnoId: maria.id, fecha: "2026-10-03T10:15:00", mes: 10, anio: 2026,
-    modalidad: "plana", importe: 50, observaciones: 'Pago "especial"; con coma',
+    modalidad: "plana", forma: "transferencia", importe: 50, observaciones: 'Pago "especial"; con coma',
   }),
 ], [maria]);
 ok(csv.charCodeAt(0) === 0xfeff, "empieza con BOM para Excel");
@@ -195,12 +246,16 @@ const cabecera = lineas[0].split(";");
 igual(cabecera.length, 10, "10 columnas");
 igual(cabecera[0], '"Alumno"', "primera columna Alumno");
 igual(cabecera[7], '"Importe (€)"', "columna de importe");
+igual(cabecera[8], '"Forma de pago"', "columna de forma de pago");
 const fila = lineas[1];
 ok(fila.indexOf('"María"') !== -1, "aparece el nombre con tilde");
 ok(fila.indexOf('"octubre"') !== -1, "aparece el mes abonado");
 ok(fila.indexOf('"50"') !== -1, "el importe es un número sin decimales de más");
 ok(fila.indexOf('"Pago ""especial""; con coma"') !== -1, "escapa comillas y punto y coma");
-ok(fila.indexOf('"Metálico"') !== -1, "el método de pago está en el CSV");
+ok(fila.indexOf('"Transferencia"') !== -1, "la forma de pago está en el CSV");
+ok(csv.indexOf('"49"') === -1 && csv.indexOf("49 €") === -1, "el CSV no menciona la tarifa antigua de 49 €");
+ok(FT.csvPagos([FT.crearPago({ alumnoId: maria.id, mes: 10, anio: 2026, modalidad: "plana", importe: 50 })], [maria])
+  .indexOf('"Metálico"') !== -1, "un pago antiguo sin forma sale como metálico en el CSV");
 
 /* ---------------- Copia JSON: exportar e importar ---------------- */
 
@@ -214,7 +269,12 @@ ok(vuelta.ok, "la copia se puede leer de vuelta");
 igual(vuelta.alumnos.length, 1, "alumnos al volver");
 igual(vuelta.pagos.length, 1, "pagos al volver");
 igual(vuelta.pagos[0].fecha, "2026-10-03T10:15:00", "la fecha del cobro se conserva igual");
-igual(vuelta.pagos[0].metodo, "Metálico", "el método se conserva");
+igual(vuelta.pagos[0].forma, "transferencia", "la forma de pago se conserva");
+igual(vuelta.alumnos[0].modalidad, "plana", "la modalidad del alumno se conserva en la copia");
+const vueltaMediodias = FT.leerImportacion(JSON.stringify(
+  FT.exportarDatos([FT.crearAlumno({ nombre: "Luis", apellidos: "Vega", modalidad: "mediomes" })], [])
+));
+igual(vueltaMediodias.alumnos[0].modalidad, "mediomes", "la modalidad de medio mes viaja en el JSON");
 
 ok(!FT.leerImportacion("esto no es json").ok, "JSON inválido se rechaza");
 ok(!FT.leerImportacion('{"hola":1}').ok, "estructura desconocida se rechaza");
@@ -226,6 +286,12 @@ ok(sucio.ok, "una copia con registros rotos se lee igualmente");
 igual(sucio.alumnos.length, 1, "los alumnos inválidos se descartan");
 igual(sucio.pagos.length, 1, "los pagos con periodo inválido se descartan");
 igual(sucio.descartadosPagos, 2, "se cuenta lo descartado");
+igual(sucio.pagos[0].forma, "metalico", "un pago importado sin forma se normaliza a metálico");
+igual(sucio.pagos[0].modalidad, "plana", "un pago importado con modalidad fuera de catálogo cae en tarifa plana");
+const importadoRaro = FT.leerImportacion(JSON.stringify({
+  alumnos: [], pagos: [{ alumnoId: "x", mes: 10, anio: 2026, modalidad: "dosdias", forma: "bizum", importe: 40 }],
+}));
+ok(importadoRaro.ok && importadoRaro.pagos[0].forma === "metalico", "una forma desconocida al importar cae en metálico");
 
 const combinado = FT.combinarDatos(
   { alumnos: [FT.crearAlumno({ id: "u1", nombre: "Local", apellidos: "Uno" })], pagos: [] },
@@ -236,7 +302,8 @@ const uno = combinado.alumnos.filter((a) => a.id === "u1")[0];
 igual(uno.nombre, "Importado", "en la fusión manda lo importado");
 
 igual(FT.euros(FT.MODALIDADES.plana.importe), "50,00 €", "tarifa plana = 50 €");
-igual(FT.euros(FT.MODALIDADES.dosdias.importe), "49,00 €", "dos días a la semana = 49 €");
+igual(FT.euros(FT.MODALIDADES.dosdias.importe), "40,00 €", "dos días a la semana = 40 €");
+igual(FT.euros(FT.MODALIDADES.mediomes.importe), "30,00 €", "medio mes, dos días = 30 €");
 igual(FT.nombreDeModalidad("dosdias"), "Dos días a la semana", "nombre de la modalidad");
 igual(FT.esc('<b>María</b> & "Ana"'), "&lt;b&gt;María&lt;/b&gt; &amp; &quot;Ana&quot;", "esc() protege el HTML");
 

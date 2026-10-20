@@ -17,10 +17,16 @@ globalThis.FT = (function () {
 
   const MODALIDADES = {
     plana: { id: "plana", nombre: "Tarifa plana", detalle: "50 € al mes", importe: 50 },
-    dosdias: { id: "dosdias", nombre: "Dos días a la semana", detalle: "49 € al mes", importe: 49 },
+    dosdias: { id: "dosdias", nombre: "Dos días a la semana", detalle: "40 € al mes", importe: 40 },
+    mediomes: { id: "mediomes", nombre: "Medio mes, dos días a la semana", detalle: "30 € · medio mes", importe: 30 },
   };
-  const MODALIDADES_ORDEN = ["plana", "dosdias"];
-  const METODO_PAGO = "Metálico";
+  const MODALIDADES_ORDEN = ["plana", "dosdias", "mediomes"];
+
+  const FORMAS_PAGO = {
+    transferencia: { id: "transferencia", nombre: "Transferencia", detalle: "Pago por banco" },
+    metalico: { id: "metalico", nombre: "Metálico", detalle: "Pago en efectivo" },
+  };
+  const FORMAS_PAGO_ORDEN = ["transferencia", "metalico"];
 
   /* ---------------- texto ---------------- */
 
@@ -129,7 +135,16 @@ globalThis.FT = (function () {
     return m ? m.detalle : "";
   }
 
-  function metodoPago() { return METODO_PAGO; }
+  function nombreDeForma(forma) {
+    const f = FORMAS_PAGO[forma];
+    return f ? f.nombre : FORMAS_PAGO.metalico.nombre;
+  }
+
+  /** Forma de pago válida del registro; los datos antiguos sin campo eran metálico. */
+  function formaDePago(pago) {
+    const f = pago && pago.forma;
+    return FORMAS_PAGO[f] ? f : "metalico";
+  }
 
   /* ---------------- alumnos ---------------- */
 
@@ -197,7 +212,9 @@ globalThis.FT = (function () {
       anio: Number(d.anio),     // periodo pagado (aaaa)
       modalidad: modalidad,
       importe: Number(d.importe),
-      metodo: String(d.metodo || METODO_PAGO),
+      // Los pagos antiguos no tenían forma: se leen como metálico.
+      // En el formulario es obligatoria y se valida antes de guardar.
+      forma: FORMAS_PAGO[d.forma] ? d.forma : "metalico",
       observaciones: String(d.observaciones || "").trim(),
     };
   }
@@ -207,6 +224,7 @@ globalThis.FT = (function () {
     const errores = [];
     if (!d.alumnoId) errores.push("Selecciona al alumno.");
     if (!MODALIDADES[d.modalidad]) errores.push("Selecciona la modalidad.");
+    if (!FORMAS_PAGO[d.forma]) errores.push("Selecciona la forma de pago.");
     const mes = Number(d.mes);
     if (!(mes >= 1 && mes <= 12)) errores.push("Selecciona el mes que se está pagando.");
     const anio = Number(d.anio);
@@ -243,11 +261,17 @@ globalThis.FT = (function () {
 
     const porModalidad = {};
     MODALIDADES_ORDEN.forEach((k) => { porModalidad[k] = { cantidad: 0, total: 0 }; });
+    const porForma = {};
+    FORMAS_PAGO_ORDEN.forEach((k) => { porForma[k] = { cantidad: 0, total: 0 }; });
     porFechaCobro.forEach((p) => {
       const k = p.modalidad;
       if (!porModalidad[k]) porModalidad[k] = { cantidad: 0, total: 0 };
       porModalidad[k].cantidad += 1;
       porModalidad[k].total += Number(p.importe) || 0;
+
+      const f = FORMAS_PAGO[p.forma] ? p.forma : "metalico";
+      porForma[f].cantidad += 1;
+      porForma[f].total += Number(p.importe) || 0;
     });
 
     const activos = (alumnos || []).filter((x) => !x.archivado).sort(compararAlumnos);
@@ -264,7 +288,10 @@ globalThis.FT = (function () {
       cobros: porFechaCobro,
       nPagos: porFechaCobro.length,
       total: total,
+      totalTransferencia: porForma.transferencia.total,
+      totalMetalico: porForma.metalico.total,
       porModalidad: porModalidad,
+      porForma: porForma,
       filas: filas,
       abonados: filas.filter((f) => f.pagado).length,
       pendientes: filas.filter((f) => !f.pagado).length,
@@ -274,7 +301,7 @@ globalThis.FT = (function () {
   /* ---------------- historial ---------------- */
 
   /**
-   * filtros: { texto, mes, anio, modalidad, alumnoId, criterio }
+   * filtros: { texto, mes, anio, modalidad, forma, alumnoId, criterio }
    * criterio: "periodo" (mes/año abonado, por defecto) o "cobro" (fecha).
    * Devuelve la lista ordenada del cobro más reciente al más antiguo.
    */
@@ -294,6 +321,7 @@ globalThis.FT = (function () {
       lista = lista.filter((p) => (criterio === "cobro" ? anioDeFecha(p.fecha) : Number(p.anio)) === a);
     }
     if (f.modalidad) lista = lista.filter((p) => p.modalidad === f.modalidad);
+    if (f.forma) lista = lista.filter((p) => formaDePago(p) === f.forma);
     if (q) {
       const mapa = {};
       (alumnos || []).forEach((a) => { mapa[a.id] = nombreCompleto(a); });
@@ -321,7 +349,7 @@ globalThis.FT = (function () {
     (alumnos || []).forEach((a) => { mapa[a.id] = a; });
     const cabecera = [
       "Alumno", "Apellidos", "Fecha de cobro", "Hora", "Mes abonado", "Año abonado",
-      "Modalidad", "Importe (€)", "Método", "Observaciones",
+      "Modalidad", "Importe (€)", "Forma de pago", "Observaciones",
     ];
     const filas = [cabecera];
     (pagos || []).slice()
@@ -339,7 +367,7 @@ globalThis.FT = (function () {
           String(p.anio),
           nombreDeModalidad(p.modalidad),
           String(importe).replace(".", ","),
-          String(p.metodo || METODO_PAGO),
+          nombreDeForma(formaDePago(p)),
           String(p.observaciones || ""),
         ]);
       });
@@ -381,6 +409,7 @@ globalThis.FT = (function () {
       id: String(obj.id || "").trim() || nuevoId(),
       nombre: nombre,
       apellidos: apellidos,
+      modalidad: MODALIDADES[obj.modalidad] ? obj.modalidad : "plana",
       archivado: !!obj.archivado,
       creado: String(obj.creado || ""),
     };
@@ -394,7 +423,7 @@ globalThis.FT = (function () {
     const anio = Number(obj.anio);
     if (!(mes >= 1 && mes <= 12)) return null;
     if (!(anio >= 2000 && anio <= 2100)) return null;
-    const modalidad = String(obj.modalidad || "plana");
+    const modalidad = MODALIDADES[obj.modalidad] ? obj.modalidad : "plana";
     let fecha = String(obj.fecha || "");
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(fecha)) {
       fecha = anio + "-" + dos(mes) + "-01T00:00:00";
@@ -408,7 +437,7 @@ globalThis.FT = (function () {
       anio: anio,
       modalidad: modalidad,
       importe: isFinite(importe) ? importe : importeDeModalidad(modalidad),
-      metodo: String(obj.metodo || METODO_PAGO),
+      forma: FORMAS_PAGO[obj.forma] ? obj.forma : "metalico",
       observaciones: String(obj.observaciones || ""),
     };
   }
@@ -458,7 +487,8 @@ globalThis.FT = (function () {
     MESES: MESES,
     MODALIDADES: MODALIDADES,
     MODALIDADES_ORDEN: MODALIDADES_ORDEN,
-    METODO_PAGO: METODO_PAGO,
+    FORMAS_PAGO: FORMAS_PAGO,
+    FORMAS_PAGO_ORDEN: FORMAS_PAGO_ORDEN,
     dos: dos,
     nuevoId: nuevoId,
     esc: esc,
@@ -476,7 +506,8 @@ globalThis.FT = (function () {
     importeDeModalidad: importeDeModalidad,
     nombreDeModalidad: nombreDeModalidad,
     detalleDeModalidad: detalleDeModalidad,
-    metodoPago: metodoPago,
+    nombreDeForma: nombreDeForma,
+    formaDePago: formaDePago,
     nombreCompleto: nombreCompleto,
     compararAlumnos: compararAlumnos,
     crearAlumno: crearAlumno,

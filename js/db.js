@@ -3,12 +3,21 @@
    Fulltraining · Control de pagos
    js/db.js — almacén local en IndexedDB.
    Las tablas son "alumnos", "pagos" y "meta". Al actualizar la
-   app solo se crean tablas nuevas: nunca se borran datos.
+   app solo se crean tablas nuevas. La única excepción es el
+   borrado inicial de la versión 1.2.0, que se hace una sola vez
+   y queda marcado en "meta" para no repetirse nunca.
    ============================================================ */
 
 globalThis.FTDB = (function () {
   const NOMBRE = "fulltraining-pagos";
   const VERSION = 1;
+
+  /* Marca del borrado único de los datos anteriores a la versión 1.2.0
+     (tarifa de 49 € y pagos sin forma de pago). No cambiar este valor en
+     futuras versiones: si cambiara, se volvería a borrar todo. */
+  const MARCA_BORRADO = "borrado-1.2.0";
+  const CLAVE_BORRADO = "borradoDatosHasta";
+
   let promesaDb = null;
 
   function abrir() {
@@ -161,9 +170,31 @@ globalThis.FTDB = (function () {
     return leer("meta", "get", clave).then((fila) => (fila ? fila.valor : undefined));
   }
 
+  /**
+   * Borra una única vez los alumnos y pagos de versiones anteriores a 1.2.0
+   * (incluidos los de 49 €) y deja una marca en "meta". En aperturas
+   * posteriores, recargas o futuras actualizaciones no vuelve a borrar nada.
+   * Todo ocurre en una sola transacción para que no quede a medias.
+   */
+  function limpiarDatosAntiguos() {
+    return transaccionVarias(["alumnos", "pagos", "meta"], "readwrite", (tienda) => {
+      const meta = tienda("meta");
+      const consulta = meta.get(CLAVE_BORRADO);
+      consulta.onsuccess = () => {
+        const fila = consulta.result;
+        if (fila && fila.valor === MARCA_BORRADO) return; // ya se hizo: no tocar nada
+        tienda("alumnos").clear();
+        tienda("pagos").clear();
+        meta.put({ clave: CLAVE_BORRADO, valor: MARCA_BORRADO });
+      };
+      return true;
+    });
+  }
+
   return {
     NOMBRE: NOMBRE,
     VERSION: VERSION,
+    MARCA_BORRADO: MARCA_BORRADO,
     abrir: abrir,
     cerrar: cerrar,
     listarAlumnos: listarAlumnos,
@@ -174,5 +205,6 @@ globalThis.FTDB = (function () {
     guardarTodo: guardarTodo,
     guardarMeta: guardarMeta,
     leerMeta: leerMeta,
+    limpiarDatosAntiguos: limpiarDatosAntiguos,
   };
 })();
